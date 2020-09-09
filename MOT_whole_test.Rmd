@@ -1,0 +1,63 @@
+---
+title: "MOT_whole_data_test"
+author: "Kaiwen Lai"
+date: "07/09/2020"
+output: html_document
+---
+
+```{r cars}
+library(tidyverse)
+library(dplyr)
+library(xlsx)
+library(openxlsx)
+```
+```{r}
+df<-read.xlsx("../MoT Data Extract June 2019.xlsx",2)
+
+df_empty.ind <- apply(df, 1, function(x){
+  sum(!is.na(x) & x !='' & !is.null(x))
+}) 
+df1 <- df[df_empty.ind!=0,]
+
+#colnames(df1) <- tolower(colnames(df1))
+
+```
+
+```{r}
+#sub.df <- df1 %>% select(buyer_region) %>% mutate_all(list(~tolower(.)))
+sub.df <- big_dt %>% select(vehicle_type) %>% mutate_all(list(~tolower(.)))
+-sort(-table(sub.df))
+```
+```{r}
+paste0("completeness:", round(mean(complete.cases(sub.df))*100,2),"%")
+#sum(!complete.cases(sub.df))
+#mean(!complete.cases(sub.df))
+head(sub.df[!complete.cases(sub.df),])
+```
+```{r}
+sp = boxplot(as.numeric(sub.df[complete.cases(sub.df),]),boxwex=0.7)
+title(paste0("boxplot of ",colnames(sub.df)))
+xi=1.1
+sd.s <- sd(sub.df[complete.cases(sub.df),])
+mean.s <- mean(sub.df[complete.cases(sub.df),])
+points(xi,mean.s,col="red",pch=18)
+arrows(xi,mean.s-sd.s,xi,mean.s+sd.s,code = 3, col = "pink", angle = 75, length = 0.1)
+#text(rep(c(1.05,0.95),length(sp$out)/2),sp$out, sp$out, col="red")
+
+```
+
+```{r}
+head(sub.df[!complete.cases(sub.df),],20)
+```
+
+```{r}
+head(sub.df[!is.na(sub.df),],20)
+```
+
+
+
+
+
+
+
+

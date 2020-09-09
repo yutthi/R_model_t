@@ -1,0 +1,382 @@
+---
+title: "MOT_model_t"
+author: "Kaiwen Lai"
+date: "25/08/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(dplyr)
+library(stringdist)
+```
+
+```{r}
+df<-read.csv("../MOT Extract - Oct 2019.csv", header=TRUE, sep=',', stringsAsFactors=FALSE)
+df_empty.ind <- apply(df, 1, function(x){
+  sum(!is.na(x) & x !='' & !is.null(x))
+}) 
+df1 <- df[df_empty.ind!=0,]
+
+sub.df <- df1 %>% select(make, make_n, mvrregmake_n, model, model_n, mvrregmodel_n, sub_model, submodel_n,mvrregsubmodel_n) %>% mutate_all(list(~tolower(.)))
+
+get.Longest <- function(x){
+  final.choice <- x[1]
+  for(i in 1:length(x)){
+    if(nchar(x[i])>nchar(final.choice)){
+      final.choice <- x[i]
+    }
+  }
+  final.choice
+}
+
+getModel <- function(x){
+   x[x=="null"] <- NA
+   x[x==""] <- NA
+   noempty_x <- na.omit(x) # remove NA first
+   noempty_table <- sort(-table(noempty_x)) # table of count in descending order
+   new_table <- names(noempty_table) # attribute names from 'new_table'
+   
+   if(is.null(new_table)) {
+     fn_code = 1
+     res = "NONE" 
+     } else {
+       res = new_table[1]
+       fn_code = 2
+       # 1st should be the  majority
+       if(length(new_table)>1 && noempty_table[1] == noempty_table[2]){
+         res = get.Longest(new_table)
+         fn_code = 3} # get longest one if 1st = 2nd 
+       
+     }
+   return(res) 
+}
+
+new.df <- sub.df %>% mutate(
+  finalmake = apply(data.frame(make, make_n, mvrregmake_n),1,getModel),
+  finalmodel = apply(data.frame(model, model_n, mvrregmodel_n),1,getModel),
+  finalsubmodel = apply(data.frame(sub_model, submodel_n,  mvrregsubmodel_n),1,getModel)) 
+```
+
+```{r}
+head(new.df)
+```
+
+```{r}
+stringsim("ca", c("abc","abd","cba","nba"),method="osa")
+stringsim("ca", c("abc","abd","cba","nba"),method="lv")
+stringsim("ca", c("abc","abd","cba","nba"),method="dl")
+stringsim("ca", c("abc","abd","cba","nba"),method="hamming")
+stringsim("ca", c("abc","abd","cba","nba"),method="lcs")
+stringsim("ca", c("abc","abd","cba","nba"),method="qgram")
+stringsim("ca", c("abc","abd","cba","nba"),method="cosine")
+stringsim("ca", c("abc","abd","cba","nba"),method="jaccard")
+stringsim("ca", c("abc","abd","cba","nba"),method="jw")
+stringsim("ca", c("abc","abd","cba","nba"),method="soundex")
+```
+
+
+
+
+
+
+```{r}
+dt1<-read.csv("../VehicleYear-2020.csv", header=TRUE, sep=',', stringsAsFactors=FALSE)
+dt2<-read.csv("../VehicleYear-2019.csv", header=TRUE, sep=',', stringsAsFactors=FALSE)
+dt3<-read.csv("../VehicleYear-2018.csv", header=TRUE, sep=',', stringsAsFactors=FALSE)
+dt4<-read.csv("../VehicleYear-2017.csv", header=TRUE, sep=',', stringsAsFactors=FALSE)
+dt5<-read.csv("../VehicleYear-2016.csv", header=TRUE, sep=',', stringsAsFactors=FALSE)
+dt6<-read.csv("../VehicleYear-2015.csv", header=TRUE, sep=',', stringsAsFactors=FALSE)
+dt7<-read.csv("../VehicleYear-2014.csv", header=TRUE, sep=',', stringsAsFactors=FALSE)
+dt8<-read.csv("../VehicleYear-2013.csv", header=TRUE, sep=',', stringsAsFactors=FALSE)
+dt9<-read.csv("../VehicleYear-2012.csv", header=TRUE, sep=',', stringsAsFactors=FALSE)
+dt10<-read.csv("../VehicleYear-2011.csv", header=TRUE, sep=',', stringsAsFactors=FALSE)
+
+big_dt<-rbind(dt1,dt2,dt3,dt4,dt5,dt6,dt7,dt8,dt9,dt10)
+```
+
+```{r}
+colnames(big_dt) <- tolower(colnames(big_dt))
+
+sub.dt <- big_dt %>% select(make, model, submodel,body_type) %>% mutate_all(list(~tolower(.)))
+
+dt_empty.ind <- apply(data.frame(sub.dt$submodel), 1, 
+  function(x){
+    sum(!is.na(x) & x !='' & !is.null(x))
+}
+)
+sub.dt1 <- sub.dt[dt_empty.ind!=0,]
+
+head(sub.dt1)
+```
+
+solve
+```{r}
+
+
+```
+
+
+
+
+```{r}
+sub.dt2 <- unique(sub.dt1)
+
+dim(sub.dt1)
+dim(sub.dt2)
+```
+
+```{r}
+t1<-new.df
+t2<-sub.dt2
+#make,model,
+```
+
+```{r}
+fit_submodel <- function(x,y=sub.dt2){
+  sub_m <- x[2]
+  mak <- x[1]
+  
+  if(sub_m!="NONE"){
+    
+    y_sub <- y[y[,1]==mak,]
+    
+    b<-stringsim(sub_m,y_sub[,"submodel"],method='osa')
+    max.fit <- which.max(b)
+    if(length(max.fit)==0){
+      final.tag <- 0
+    }else{
+      a_sub <- y_sub[max.fit,"submodel"]
+      a_make<- y_sub[max.fit,"make"]
+      a_model <- y_sub[max.fit,"model"]
+      final.tag <- which.max(y[,1]==a_make & y[,2]==a_model & y[,3]==a_sub)
+    }
+  }else{
+    final.tag <- 0
+  }
+  
+  final.tag
+  
+}
+
+
+t1<-t1 %>% select(finalmake,finalmodel,finalsubmodel) %>%
+  mutate(fit_num = apply(data.frame(finalmake,finalsubmodel),1,fit_submodel))
+
+head(t1,25)
+```
+
+
+How about the NONE sub-model?
+
+```{r}
+t3 <- t1 %>% filter(fit_num!=0)
+
+t4 <- t3 %>% mutate( 
+  base_make = sub.dt2$make[fit_num],
+  base_model = sub.dt2$model[fit_num],
+  base_submodel = sub.dt2$submodel[fit_num])
+head(t4,20)
+```
+1. clean the source(make it smaller, get rid of duplicated value(same make,model,submodel))
+2. filter the same make for each match, and get the highest similarity value as a result.
+
+
+
+```{r}
+dim(t4[t4$finalmodel==t4$base_model,])
+```
+
+
+Next, we try to find the record with same model and highest similarity of sub model.
+
+```{R}
+tb<-new.df
+
+fit_submodel2 <- function(x,y=sub.dt2){
+  mak <- x[1]
+  mod <- x[2]
+  s_mod <- x[3]
+  
+  if(s_mod!="NONE"){
+    
+    y_sub <- y[y[,1]==mak & y[,2]==mod,]
+    
+    b<-stringsim(s_mod,y_sub[,"submodel"],method='osa')
+    max.fit <- which.max(b)
+    if(length(max.fit)==0){
+      final.tag <- 0
+    }else{
+      a_sub <- y_sub[max.fit,"submodel"]
+      a_make<- y_sub[max.fit,"make"]
+      a_model <- y_sub[max.fit,"model"]
+      final.tag <- which.max(y[,1]==a_make & y[,2]==a_model & y[,3]==a_sub)
+    }
+  }else{
+    final.tag <- 0
+  }
+  
+  final.tag
+  
+}
+
+tb<-tb %>% select(finalmake,finalmodel,finalsubmodel) %>%
+  mutate(fit_num = apply(data.frame(finalmake,finalmodel,finalsubmodel),1,fit_submodel2))
+
+head(tb,25)
+
+t3b <- tb %>% filter(fit_num!=0)
+
+t4b <- t3b %>% mutate( 
+  base_make = sub.dt2$make[fit_num],
+  base_model = sub.dt2$model[fit_num],
+  base_submodel = sub.dt2$submodel[fit_num])
+head(t4b,20)
+```
+```{r}
+dim(tb[tb$fit_num!=0,])
+```
+
+```{r}
+head(tb[tb$fit_num==0,],20)
+```
+
+
+With the highest sum of similarity of model and submodel
+
+```{R}
+tc<-new.df
+
+fit_submodel2 <- function(x,y=sub.dt2,meth='osa'){
+  mak <- x[1]
+  mod <- x[2]
+  s_mod <- x[3]
+  
+  y_sub <- y[y[,1]==mak,]
+  a<-stringsim(mod,y_sub[,"model"],method=meth)
+
+  if(s_mod!="NONE"){
+    b<-stringsim(s_mod,y_sub[,"submodel"],method=meth)
+  }else{b<-0}
+  
+  c <- a+b
+  max.fit <- which.max(c)
+    
+  if(length(max.fit)==0){
+    final.tag <- 0
+    score <- 0
+  }else{
+    a_sub <- y_sub[max.fit,"submodel"]
+    a_make<- y_sub[max.fit,"make"]
+    a_model <- y_sub[max.fit,"model"]
+    final.tag <- which.max(y[,1]==a_make & y[,2]==a_model & y[,3]==a_sub)
+    score <- max(c)/2
+    }
+  
+  return(list("fn_tag" = final.tag,"score" = score)) 
+}
+
+
+gettag <- function(x){
+  k <- unlist(x)[1]
+  k
+}
+getscore <- function(x){
+  k <- unlist(x)[2]
+  k  
+}
+
+tc<-tc %>% select(finalmake,finalmodel,finalsubmodel) %>%
+  mutate(fit_list = apply(data.frame(finalmake,finalmodel,finalsubmodel),1,fit_submodel2),
+         fn_tag = sapply(fit_list,gettag),
+         score = sapply(fit_list,getscore)) 
+
+t3c <- tc %>% filter(fn_tag!=0)
+
+t4c <- t3c %>% mutate(
+  base_make = sub.dt2$make[fn_tag],
+  base_model = sub.dt2$model[fn_tag],
+  base_submodel = sub.dt2$submodel[fn_tag])
+
+t4d <- t4c %>% select( finalmake,finalmodel,finalsubmodel,fn_tag,score,base_make,base_model,base_submodel)
+head(t4d,20)
+```
+
+```{r}
+nrow <- dim(tc)[1]
+sum(t4d[t4d$score==1,"score"])/nrow
+sum(t4d[t4d$score>=0.9,"score"])/nrow
+sum(t4d[t4d$score>=0.8,"score"])/nrow
+sum(t4d[t4d$score>=0.5,"score"])/nrow
+```
+
+next add more variables
+```{R}
+tc<-new.df
+
+fit_submodel2 <- function(x,y=sub.dt2,meth='osa'){
+  mak <- x[1]
+  mod <- x[2]
+  s_mod <- x[3]
+  
+  y_sub <- y[y[,1]==mak,]
+  a<-stringsim(mod,y_sub[,"model"],method=meth)
+
+  if(s_mod!="NONE"){
+    b<-stringsim(s_mod,y_sub[,"submodel"],method=meth)
+  }else{b<-0}
+  
+  c <- a+b
+  max.fit <- which.max(c)
+    
+  if(length(max.fit)==0){
+    final.tag <- 0
+    score <- 0
+  }else{
+    a_sub <- y_sub[max.fit,"submodel"]
+    a_make<- y_sub[max.fit,"make"]
+    a_model <- y_sub[max.fit,"model"]
+    final.tag <- which.max(y[,1]==a_make & y[,2]==a_model & y[,3]==a_sub)
+    score <- max(c)/2
+    }
+  
+  return(list("fn_tag" = final.tag,"score" = score)) 
+}
+
+
+gettag <- function(x){
+  k <- unlist(x)[1]
+  k
+}
+getscore <- function(x){
+  k <- unlist(x)[2]
+  k  
+}
+
+tc<-tc %>% select(finalmake,finalmodel,finalsubmodel) %>%
+  mutate(fit_list = apply(data.frame(finalmake,finalmodel,finalsubmodel),1,fit_submodel2),
+         fn_tag = sapply(fit_list,gettag),
+         score = sapply(fit_list,getscore)) 
+
+t3c <- tc %>% filter(fn_tag!=0)
+
+t4c <- t3c %>% mutate(
+  base_make = sub.dt2$make[fn_tag],
+  base_model = sub.dt2$model[fn_tag],
+  base_submodel = sub.dt2$submodel[fn_tag])
+
+t4d <- t4c %>% select( finalmake,finalmodel,finalsubmodel,fn_tag,score,base_make,base_model,base_submodel)
+head(t4d,20)
+```
+
+
+
+
+```{r}
+colnames(big_dt)
+```
+
+
+
+
