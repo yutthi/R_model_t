@@ -12,7 +12,8 @@ library(xlsx)
 library(openxlsx)
 ```
 ```{r}
-df<-read.xlsx("../MoT Data Extract June 2019.xlsx",2)
+#df<-read.xlsx("../MoT Data Extract June 2019.xlsx",2)
+df<-read.csv("../MOT Extract - Oct 2019.csv", header=TRUE, sep=',', stringsAsFactors=FALSE)
 
 df_empty.ind <- apply(df, 1, function(x){
   sum(!is.na(x) & x !='' & !is.null(x))
@@ -25,7 +26,7 @@ df1 <- df[df_empty.ind!=0,]
 
 ```{r}
 #sub.df <- df1 %>% select(buyer_region) %>% mutate_all(list(~tolower(.)))
-sub.df <- big_dt %>% select(vehicle_type) %>% mutate_all(list(~tolower(.)))
+sub.df <- df1 %>% select(transmission) %>% mutate_all(list(~tolower(.)))
 -sort(-table(sub.df))
 ```
 ```{r}
