@@ -477,4 +477,124 @@ dim(t4e[t4e$score>=0.8,])[1]/nrow
 dim(t4e[t4e$score>=0.5,])[1]/nrow
 ```
 
+```{r}
+t_data <- data.frame(tc$finalmake,tc$finalmodel,tc$finalsubmodel, tc$finalseats, tc$transmission_n, tc$body_style)
+
+```
+
+```{R}
+
+te2<- t_data %>% 
+  mutate(fit_list = apply(t_data,1,fit_submodel2,meth="hamming"),
+         score = sapply(fit_list,getscore)) 
+
+nrow <- dim(te2)[1]
+dim(te2[te2$score==1,])[1]/nrow
+dim(te2[te2$score>=0.9,])[1]/nrow
+dim(te2[te2$score>=0.8,])[1]/nrow
+dim(te2[te2$score>=0.5,])[1]/nrow
+```
+
+
+```{R}
+
+te2<- t_data %>% 
+  mutate(fit_list = apply(t_data,1,fit_submodel2,meth="lcs"),
+         score = sapply(fit_list,getscore)) 
+
+nrow <- dim(te2)[1]
+dim(te2[te2$score==1,])[1]/nrow
+dim(te2[te2$score>=0.9,])[1]/nrow
+dim(te2[te2$score>=0.8,])[1]/nrow
+dim(te2[te2$score>=0.5,])[1]/nrow
+```
+
+
+```{R}
+
+te2<- t_data %>% 
+  mutate(fit_list = apply(t_data,1,fit_submodel2,meth="qgram"),
+         score = sapply(fit_list,getscore)) 
+
+nrow <- dim(te2)[1]
+dim(te2[te2$score==1,])[1]/nrow
+dim(te2[te2$score>=0.9,])[1]/nrow
+dim(te2[te2$score>=0.8,])[1]/nrow
+dim(te2[te2$score>=0.5,])[1]/nrow
+```
+
+```{R}
+
+te2<- t_data %>% 
+  mutate(fit_list = apply(t_data,1,fit_submodel2,meth="cosine"),
+         score = sapply(fit_list,getscore)) 
+
+nrow <- dim(te2)[1]
+dim(te2[te2$score==1,])[1]/nrow
+dim(te2[te2$score>=0.9,])[1]/nrow
+dim(te2[te2$score>=0.8,])[1]/nrow
+dim(te2[te2$score>=0.5,])[1]/nrow
+```
+
+```{R}
+
+te2<- t_data %>% 
+  mutate(fit_list = apply(t_data,1,fit_submodel2,meth="jaccard"),
+         score = sapply(fit_list,getscore)) 
+
+nrow <- dim(te2)[1]
+dim(te2[te2$score==1,])[1]/nrow
+dim(te2[te2$score>=0.9,])[1]/nrow
+dim(te2[te2$score>=0.8,])[1]/nrow
+dim(te2[te2$score>=0.5,])[1]/nrow
+```
+
+```{R}
+
+te2<- t_data %>% 
+  mutate(fit_list = apply(t_data,1,fit_submodel2,meth="jw"),
+         score = sapply(fit_list,getscore)) 
+
+nrow <- dim(te2)[1]
+dim(te2[te2$score==1,])[1]/nrow
+dim(te2[te2$score>=0.9,])[1]/nrow
+dim(te2[te2$score>=0.8,])[1]/nrow
+dim(te2[te2$score>=0.5,])[1]/nrow
+```
+
+```{R}
+te2<- t_data %>% 
+  mutate(fit_list = apply(t_data,1,fit_submodel2,meth="soundex"),
+         score = sapply(fit_list,getscore)) 
+
+nrow <- dim(te2)[1]
+dim(te2[te2$score==1,])[1]/nrow
+dim(te2[te2$score>=0.9,])[1]/nrow
+dim(te2[te2$score>=0.8,])[1]/nrow
+dim(te2[te2$score>=0.5,])[1]/nrow
+```
+
+
+
+
+```{R}
+te3<- t_data %>% 
+  mutate(fit_list = apply(t_data,1,fit_submodel2,meth="osa"),
+         score = sapply(fit_list,getscore)) 
+
+nrow <- dim(te3)[1]
+dim(te3[te3$score==1,])[1]/nrow
+dim(te3[te3$score>=0.9,])[1]/nrow
+dim(te3[te3$score>=0.8,])[1]/nrow
+dim(te3[te3$score>=0.5,])[1]/nrow
+```
+
+
+
+
+
+
+
+
+
 
