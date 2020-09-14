@@ -408,21 +408,21 @@ fit_submodel2 <- function(x,y=sub.dt2d,meth='osa'){
   if(s_mod!="NONE"){
     b<-stringsim(s_mod,y_sub[,"submodel"],method=meth)
   }else{
-    b<-stringsim("",y_sub[,"submodel"],method=meth)}
+    b<-0}
   
   c <- stringsim(seat,y_sub[,"number_of_seats"],method=meth)
   
   if(trans!="null"){
     d<-stringsim(trans,y_sub[,"transmission_type"],method=meth)
   }else{
-    d<-stringsim("",y_sub[,"transmission_type"],method=meth)}
+    d<-0}
   
   e <- stringsim(body,y_sub[,"body_type"],method=meth)
   
   tol<- a+b+c+d+e
   
   max.fit <- which.max(tol)
-    
+  max.score <- tol[max.fit]
   if(length(max.fit)==0){
     final.tag <- 0
     score <- 0
@@ -434,7 +434,7 @@ fit_submodel2 <- function(x,y=sub.dt2d,meth='osa'){
     a_trans <- y_sub[max.fit,"transmission_type"]
     a_body <- y_sub[max.fit,"body_type"]
     final.tag <- which.max(y[,1]==a_make & y[,2]==a_model & y[,3]==a_sub & y[,5]==a_seat & y[,6]== a_trans & y[,4]==a_body)
-    score <- max(tol)/6
+    score <- max.score/5
     }
   
   return(list("fn_tag" = final.tag,"score" = score)) 
@@ -448,6 +448,8 @@ getscore <- function(x){
   k <- unlist(x)[2]
   k  
 }
+```
+```{r}
 system.time(
 te<-tc %>% select(finalmake,finalmodel,finalsubmodel, finalseats, transmission_n, body_style) %>%
   mutate(fit_list = apply(data.frame(finalmake,finalmodel,finalsubmodel, finalseats, transmission_n, body_style),1,fit_submodel2),
@@ -481,114 +483,356 @@ dim(t4e[t4e$score>=0.5,])[1]/nrow
 t_data <- data.frame(tc$finalmake,tc$finalmodel,tc$finalsubmodel, tc$finalseats, tc$transmission_n, tc$body_style)
 
 ```
+```{r}
+
+fit_submodel4 <- function(x,y=sub.dt2d,meth='osa'){
+  mak <- as.character(unlist(x[1]))
+  mod <- as.character(unlist(x[2]))
+  s_mod <- as.character(unlist(x[3]))
+  seat <- as.character(unlist(x[4]))
+  trans <- as.character(unlist(x[5]))
+  body <- as.character(unlist(x[6]))
+  
+  y_sub <- y[y[,1]==mak,]
+  a<-stringsim(mod,y_sub[,"model"],method=meth)
+
+  if(s_mod!="NONE"){
+    b<-stringsim(s_mod,y_sub[,"submodel"],method=meth)
+  }else{
+    b<-ifelse(y_sub[,"submodel"]!="",0.5,0)
+  }
+  if(seat!="0"){
+    c <- stringsim(seat,y_sub[,"number_of_seats"],method=meth)
+  }else{
+    c<-ifelse(y_sub[,"number_of_seats"]!="0",0.5,0)
+  }
+  
+  if(trans!="null" | trans!=""){
+    d<-stringsim(trans,y_sub[,"transmission_type"],method=meth)
+  }else{
+    d<-ifelse(y_sub[,"transmission_type"]!="",0.5,0)
+  }
+  
+  e <- stringsim(body,y_sub[,"body_type"],method=meth)
+  
+  tol<- a+b+c+d+e
+  
+  max.fit <- which.max(tol)
+  max.score <- tol[max.fit]
+  if(length(max.fit)==0){
+    final.tag <- 0
+    score <- 0
+  }else{
+    a_sub <- y_sub[max.fit,"submodel"]
+    a_make<- y_sub[max.fit,"make"]
+    a_model <- y_sub[max.fit,"model"]
+    a_seat <- y_sub[max.fit,"number_of_seats"]
+    a_trans <- y_sub[max.fit,"transmission_type"]
+    a_body <- y_sub[max.fit,"body_type"]
+    final.tag <- which.max(y[,1]==a_make & y[,2]==a_model & y[,3]==a_sub & y[,5]==a_seat & y[,6]== a_trans & y[,4]==a_body)
+    score <- max.score/5
+    }
+  
+  return(list("fn_tag" = final.tag,"score" = score)) 
+}
+```
 
 ```{R}
+te1<- t_data %>% 
+  mutate(fit_list = apply(t_data,1,fit_submodel4,meth="osa"),
+         score = sapply(fit_list,getscore),
+         fn_tag = sapply(fit_list,gettag)) 
+
+nrow <- dim(te1)[1]
+dim(te1[te1$score==1,])[1]/nrow
+dim(te1[te1$score>=0.9,])[1]/nrow
+dim(te1[te1$score>=0.8,])[1]/nrow
+dim(te1[te1$score>=0.5,])[1]/nrow
+
 
 te2<- t_data %>% 
-  mutate(fit_list = apply(t_data,1,fit_submodel2,meth="hamming"),
-         score = sapply(fit_list,getscore)) 
+  mutate(fit_list = apply(t_data,1,fit_submodel4,meth="lv"),
+         score = sapply(fit_list,getscore),
+         fn_tag = sapply(fit_list,gettag)) 
 
 nrow <- dim(te2)[1]
 dim(te2[te2$score==1,])[1]/nrow
 dim(te2[te2$score>=0.9,])[1]/nrow
 dim(te2[te2$score>=0.8,])[1]/nrow
 dim(te2[te2$score>=0.5,])[1]/nrow
-```
 
-
-```{R}
-
-te2<- t_data %>% 
-  mutate(fit_list = apply(t_data,1,fit_submodel2,meth="lcs"),
-         score = sapply(fit_list,getscore)) 
-
-nrow <- dim(te2)[1]
-dim(te2[te2$score==1,])[1]/nrow
-dim(te2[te2$score>=0.9,])[1]/nrow
-dim(te2[te2$score>=0.8,])[1]/nrow
-dim(te2[te2$score>=0.5,])[1]/nrow
-```
-
-
-```{R}
-
-te2<- t_data %>% 
-  mutate(fit_list = apply(t_data,1,fit_submodel2,meth="qgram"),
-         score = sapply(fit_list,getscore)) 
-
-nrow <- dim(te2)[1]
-dim(te2[te2$score==1,])[1]/nrow
-dim(te2[te2$score>=0.9,])[1]/nrow
-dim(te2[te2$score>=0.8,])[1]/nrow
-dim(te2[te2$score>=0.5,])[1]/nrow
-```
-
-```{R}
-
-te2<- t_data %>% 
-  mutate(fit_list = apply(t_data,1,fit_submodel2,meth="cosine"),
-         score = sapply(fit_list,getscore)) 
-
-nrow <- dim(te2)[1]
-dim(te2[te2$score==1,])[1]/nrow
-dim(te2[te2$score>=0.9,])[1]/nrow
-dim(te2[te2$score>=0.8,])[1]/nrow
-dim(te2[te2$score>=0.5,])[1]/nrow
-```
-
-```{R}
-
-te2<- t_data %>% 
-  mutate(fit_list = apply(t_data,1,fit_submodel2,meth="jaccard"),
-         score = sapply(fit_list,getscore)) 
-
-nrow <- dim(te2)[1]
-dim(te2[te2$score==1,])[1]/nrow
-dim(te2[te2$score>=0.9,])[1]/nrow
-dim(te2[te2$score>=0.8,])[1]/nrow
-dim(te2[te2$score>=0.5,])[1]/nrow
-```
-
-```{R}
-
-te2<- t_data %>% 
-  mutate(fit_list = apply(t_data,1,fit_submodel2,meth="jw"),
-         score = sapply(fit_list,getscore)) 
-
-nrow <- dim(te2)[1]
-dim(te2[te2$score==1,])[1]/nrow
-dim(te2[te2$score>=0.9,])[1]/nrow
-dim(te2[te2$score>=0.8,])[1]/nrow
-dim(te2[te2$score>=0.5,])[1]/nrow
-```
-
-```{R}
-te2<- t_data %>% 
-  mutate(fit_list = apply(t_data,1,fit_submodel2,meth="soundex"),
-         score = sapply(fit_list,getscore)) 
-
-nrow <- dim(te2)[1]
-dim(te2[te2$score==1,])[1]/nrow
-dim(te2[te2$score>=0.9,])[1]/nrow
-dim(te2[te2$score>=0.8,])[1]/nrow
-dim(te2[te2$score>=0.5,])[1]/nrow
-```
-
-
-
-
-```{R}
 te3<- t_data %>% 
-  mutate(fit_list = apply(t_data,1,fit_submodel2,meth="osa"),
-         score = sapply(fit_list,getscore)) 
+  mutate(fit_list = apply(t_data,1,fit_submodel4,meth="dl"),
+         score = sapply(fit_list,getscore),
+         fn_tag = sapply(fit_list,gettag)) 
 
 nrow <- dim(te3)[1]
 dim(te3[te3$score==1,])[1]/nrow
 dim(te3[te3$score>=0.9,])[1]/nrow
 dim(te3[te3$score>=0.8,])[1]/nrow
 dim(te3[te3$score>=0.5,])[1]/nrow
+
+te4<- t_data %>% 
+  mutate(fit_list = apply(t_data,1,fit_submodel4,meth="hamming"),
+         score = sapply(fit_list,getscore),
+         fn_tag = sapply(fit_list,gettag)) 
+
+nrow <- dim(te4)[1]
+dim(te4[te4$score==1,])[1]/nrow
+dim(te4[te4$score>=0.9,])[1]/nrow
+dim(te4[te4$score>=0.8,])[1]/nrow
+dim(te4[te4$score>=0.5,])[1]/nrow
+
+te5<- t_data %>% 
+  mutate(fit_list = apply(t_data,1,fit_submodel4,meth="lcs"),
+         score = sapply(fit_list,getscore),
+         fn_tag = sapply(fit_list,gettag)) 
+
+nrow <- dim(te5)[1]
+dim(te5[te5$score==1,])[1]/nrow
+dim(te5[te5$score>=0.9,])[1]/nrow
+dim(te5[te5$score>=0.8,])[1]/nrow
+dim(te5[te5$score>=0.5,])[1]/nrow
+
+te6<- t_data %>% 
+  mutate(fit_list = apply(t_data,1,fit_submodel4,meth="qgram"),
+         score = sapply(fit_list,getscore),
+         fn_tag = sapply(fit_list,gettag)) 
+
+nrow <- dim(te6)[1]
+dim(te6[te6$score==1,])[1]/nrow
+dim(te6[te6$score>=0.9,])[1]/nrow
+dim(te6[te6$score>=0.8,])[1]/nrow
+dim(te6[te6$score>=0.5,])[1]/nrow
+
+te7<- t_data %>% 
+  mutate(fit_list = apply(t_data,1,fit_submodel4,meth="cosine"),
+         score = sapply(fit_list,getscore),
+         fn_tag = sapply(fit_list,gettag)) 
+
+nrow <- dim(te7)[1]
+dim(te7[te7$score==1,])[1]/nrow
+dim(te7[te7$score>=0.9,])[1]/nrow
+dim(te7[te7$score>=0.8,])[1]/nrow
+dim(te7[te7$score>=0.5,])[1]/nrow
+
+te8<- t_data %>% 
+  mutate(fit_list = apply(t_data,1,fit_submodel4,meth="jaccard"),
+         score = sapply(fit_list,getscore),
+         fn_tag = sapply(fit_list,gettag)) 
+
+nrow <- dim(te8)[1]
+dim(te8[te8$score==1,])[1]/nrow
+dim(te8[te8$score>=0.9,])[1]/nrow
+dim(te8[te8$score>=0.8,])[1]/nrow
+dim(te8[te8$score>=0.5,])[1]/nrow
+
+te9<- t_data %>% 
+  mutate(fit_list = apply(t_data,1,fit_submodel4,meth="jw"),
+         score = sapply(fit_list,getscore),
+         fn_tag = sapply(fit_list,gettag)) 
+
+nrow <- dim(te9)[1]
+dim(te9[te9$score==1,])[1]/nrow
+dim(te9[te9$score>=0.9,])[1]/nrow
+dim(te9[te9$score>=0.8,])[1]/nrow
+dim(te9[te9$score>=0.5,])[1]/nrow
+
+te10<- t_data %>% 
+  mutate(fit_list = apply(t_data,1,fit_submodel4,meth="soundex"),
+         score = sapply(fit_list,getscore),
+         fn_tag = sapply(fit_list,gettag)) 
+
+nrow <- dim(te10)[1]
+dim(te10[te10$score==1,])[1]/nrow
+dim(te10[te10$score>=0.9,])[1]/nrow
+dim(te10[te10$score>=0.8,])[1]/nrow
+dim(te10[te10$score>=0.5,])[1]/nrow
 ```
 
+```{R}
+tc<-new.df2
+
+fit_submodel3 <- function(x,y=sub.dt2d,meth='osa'){
+  mak <- as.character(unlist(x[1]))
+  mod <- as.character(unlist(x[2]))
+  s_mod <- as.character(unlist(x[3]))
+  seat <- as.character(unlist(x[4]))
+  trans <- as.character(unlist(x[5]))
+  body <- as.character(unlist(x[6]))
+  
+  y_sub <- y[y[,1]==mak,]
+  a<-stringsim(mod,y_sub[,"model"],method=meth)
+
+  if(s_mod!="NONE"){
+    b<-stringsim(s_mod,y_sub[,"submodel"],method=meth)
+  }else{
+    b<-ifelse(y_sub[,"submodel"]!="",1,0)
+  }
+  
+  c <- stringsim(seat,y_sub[,"number_of_seats"],method=meth)
+  
+  if(trans!="null"){
+    d<-stringsim(trans,y_sub[,"transmission_type"],method=meth)
+  }else{
+    d<-ifelse(y_sub[,"transmission_type"]!="",1,0)
+  }
+  
+  e <- stringsim(body,y_sub[,"body_type"],method=meth)
+  
+  tol<- a+b+c+d+e
+  
+  max.fit <- which.max(tol)
+  max.score <- tol[max.fit]
+  if(length(max.fit)==0){
+    final.tag <- 0
+    score <- 0
+  }else{
+    a_sub <- y_sub[max.fit,"submodel"]
+    a_make<- y_sub[max.fit,"make"]
+    a_model <- y_sub[max.fit,"model"]
+    a_seat <- y_sub[max.fit,"number_of_seats"]
+    a_trans <- y_sub[max.fit,"transmission_type"]
+    a_body <- y_sub[max.fit,"body_type"]
+    final.tag <- which.max(y[,1]==a_make & y[,2]==a_model & y[,3]==a_sub & y[,5]==a_seat & y[,6]== a_trans & y[,4]==a_body)
+    score <- max.score/6
+    }
+  
+  return(list("fn_tag" = final.tag,"score" = score)) 
+}
+
+te11<- t_data %>% 
+  mutate(fit_list = apply(t_data,1,fit_submodel3,meth="osa"),
+         score = sapply(fit_list,getscore),
+         fn_tag = sapply(fit_list,gettag)) 
+
+nrow <- dim(te11)[1]
+dim(te11[te11$score==1,])[1]/nrow
+dim(te11[te11$score>=0.9,])[1]/nrow
+dim(te11[te11$score>=0.8,])[1]/nrow
+dim(te11[te11$score>=0.5,])[1]/nrow
+```
+```{r}
+te11a <- te11 %>% filter(fn_tag!=0)
+
+te11a <- te11a %>% mutate(
+  base_make = sub.dt2d$make[fn_tag],
+  base_model = sub.dt2d$model[fn_tag],
+  base_submodel = sub.dt2d$submodel[fn_tag],
+  base_seat = sub.dt2d$number_of_seats[fn_tag],
+  base_transmission = sub.dt2d$transmission_type[fn_tag],
+  base_body_style = sub.dt2d$body_type[fn_tag])
+
+te11b <- te11a %>% select( tc.finalmake,tc.finalmodel,tc.finalsubmodel, tc.finalseats, tc.transmission_n, tc.body_style,fn_tag,score,base_make,base_model,base_submodel,base_seat,base_transmission,base_body_style)
+```
+
+
+
+```{R}
+
+fit_submodel4 <- function(x,y=sub.dt2d,meth='osa'){
+  mak <- as.character(unlist(x[1]))
+  mod <- as.character(unlist(x[2]))
+  s_mod <- as.character(unlist(x[3]))
+  seat <- as.character(unlist(x[4]))
+  trans <- as.character(unlist(x[5]))
+  body <- as.character(unlist(x[6]))
+  
+  y_sub <- y[y[,1]==mak,]
+  a<-stringsim(mod,y_sub[,"model"],method=meth)
+
+  if(s_mod!="NONE"){
+    b<-stringsim(s_mod,y_sub[,"submodel"],method=meth)
+  }else{
+    b<-ifelse(y_sub[,"submodel"]!="",0.5,0)
+  }
+  if(seat!="0"){
+    c <- stringsim(seat,y_sub[,"number_of_seats"],method=meth)
+  }else{
+    c<-ifelse(y_sub[,"number_of_seats"]!="0",0.5,0)
+  }
+  
+  if(trans!="null" | trans!=""){
+    d<-stringsim(trans,y_sub[,"transmission_type"],method=meth)
+  }else{
+    d<-ifelse(y_sub[,"transmission_type"]!="",0.5,0)
+  }
+  
+  e <- stringsim(body,y_sub[,"body_type"],method=meth)
+  
+  tol<- a+b+c+d+e
+  
+  max.fit <- which.max(tol)
+  max.score <- tol[max.fit]
+  if(length(max.fit)==0){
+    final.tag <- 0
+    score <- 0
+  }else{
+    a_sub <- y_sub[max.fit,"submodel"]
+    a_make<- y_sub[max.fit,"make"]
+    a_model <- y_sub[max.fit,"model"]
+    a_seat <- y_sub[max.fit,"number_of_seats"]
+    a_trans <- y_sub[max.fit,"transmission_type"]
+    a_body <- y_sub[max.fit,"body_type"]
+    final.tag <- which.max(y[,1]==a_make & y[,2]==a_model & y[,3]==a_sub & y[,5]==a_seat & y[,6]== a_trans & y[,4]==a_body)
+    score <- max.score/5
+    }
+  
+  return(list("fn_tag" = final.tag,"score" = score)) 
+}
+
+te12<- t_data %>% 
+  mutate(fit_list = apply(t_data,1,fit_submodel4,meth="osa"),
+         score = sapply(fit_list,getscore),
+         fn_tag = sapply(fit_list,gettag)) 
+
+nrow <- dim(te12)[1]
+dim(te12[te12$score==1,])[1]/nrow
+dim(te12[te12$score>=0.9,])[1]/nrow
+dim(te12[te12$score>=0.8,])[1]/nrow
+dim(te12[te12$score>=0.5,])[1]/nrow
+```
+
+```{r}
+te12a <- te12 %>% filter(fn_tag!=0)
+
+te12a <- te12a %>% mutate(
+  base_make = sub.dt2d$make[fn_tag],
+  base_model = sub.dt2d$model[fn_tag],
+  base_submodel = sub.dt2d$submodel[fn_tag],
+  base_seat = sub.dt2d$number_of_seats[fn_tag],
+  base_transmission = sub.dt2d$transmission_type[fn_tag],
+  base_body_style = sub.dt2d$body_type[fn_tag])
+
+te12b <- te12a %>% select( tc.finalmake,tc.finalmodel,tc.finalsubmodel, tc.finalseats, tc.transmission_n, tc.body_style,fn_tag,score,base_make,base_model,base_submodel,base_seat,base_transmission,base_body_style)
+```
+
+```{r}
+te9a <- te10 %>% filter(fn_tag!=0)
+
+te9a <- te9a %>% mutate(
+  score_new = score*6/5,
+  base_make = sub.dt2d$make[fn_tag],
+  base_model = sub.dt2d$model[fn_tag],
+  base_submodel = sub.dt2d$submodel[fn_tag],
+  base_seat = sub.dt2d$number_of_seats[fn_tag],
+  base_transmission = sub.dt2d$transmission_type[fn_tag],
+  base_body_style = sub.dt2d$body_type[fn_tag])
+
+nrow <- dim(te10)[1]
+dim(te9a[te9a$score_new==1,])[1]/nrow
+dim(te9a[te9a$score_new>=0.9,])[1]/nrow
+dim(te9a[te9a$score_new>=0.8,])[1]/nrow
+dim(te9a[te9a$score_new>=0.7,])[1]/nrow
+dim(te9a[te9a$score_new>=0.6,])[1]/nrow
+dim(te9a[te9a$score_new>=0.5,])[1]/nrow
+
+te9b <- te9a %>% select( tc.finalmake,tc.finalmodel,tc.finalsubmodel, tc.finalseats, tc.transmission_n, tc.body_style,fn_tag,score_new,base_make,base_model,base_submodel,base_seat,base_transmission,base_body_style)
+```
+
+```{r}
+save(te12,te2,te3,te4,te5,te6,te7,te8,te9,te10,file = "sim_rdata")
+```
 
 
 
