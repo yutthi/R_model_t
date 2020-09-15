@@ -10,10 +10,14 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(dplyr)
 library(stringdist)
+library(xlsx)
+library(openxlsx)
 ```
 
 ```{r}
-df<-read.csv("../MOT Extract - Oct 2019.csv", header=TRUE, sep=',', stringsAsFactors=FALSE)
+#df<-read.csv("../MOT Extract - Oct 2019.csv", header=TRUE, sep=',', stringsAsFactors=FALSE)
+df<-read.xlsx("../MOT Exract Jul-Sep 2019.xlsx",1)
+
 df_empty.ind <- apply(df, 1, function(x){
   sum(!is.na(x) & x !='' & !is.null(x))
 }) 
@@ -52,6 +56,13 @@ getModel <- function(x){
      }
    return(res) 
 }
+```
+```{r}
+sub.df$seats<-ifelse(sub.df$seats!=0,sub.df$seats,sub.df$seats_n)
+
+sub.df[sub.df$seats==3,"seats"] <- 2
+sub.df[sub.df$seats==4,"seats"] <- 5
+sub.df[sub.df$seats==6,"seats"] <- 7
 
 new.df <- sub.df %>% mutate(
   finalmake = apply(data.frame(make, make_n, mvrregmake_n),1,getModel),
@@ -835,8 +846,92 @@ save(te12,te2,te3,te4,te5,te6,te7,te8,te9,te10,file = "sim_rdata")
 ```
 
 
+test another data set
+
+```{r cars}
+library(tidyverse)
+library(dplyr)
+library(xlsx)
+library(openxlsx)
+```
 
 
+```
+system.time(
+te1<- tc %>% select(finalmake,finalmodel,finalsubmodel, finalseats, transmission, body_style) %>%
+  mutate(
+    fit_list1 = apply(data.frame(finalmake,finalmodel,finalsubmodel, finalseats, transmission, body_style),1,fit_submodel4,meth="osa"),
+    
+    fit_list2 = apply(data.frame(finalmake,finalmodel,finalsubmodel, finalseats, transmission, body_style),1,fit_submodel4,meth="lv"),
+    
+    fit_list3 = apply(data.frame(finalmake,finalmodel,finalsubmodel, finalseats, transmission, body_style),1,fit_submodel4,meth="dl"),
+    
+    fit_list4 = apply(data.frame(finalmake,finalmodel,finalsubmodel, finalseats, transmission, body_style),1,fit_submodel4,meth="hamming"),
+    
+    fit_list5 = apply(data.frame(finalmake,finalmodel,finalsubmodel, finalseats, transmission, body_style),1,fit_submodel4,meth="lcs"),
+    
+    fit_list6 = apply(data.frame(finalmake,finalmodel,finalsubmodel, finalseats, transmission, body_style),1,fit_submodel4,meth="qgram"),
+    
+    fit_list7 = apply(data.frame(finalmake,finalmodel,finalsubmodel, finalseats, transmission, body_style),1,fit_submodel4,meth="cosine"),
+    
+    fit_list8 = apply(data.frame(finalmake,finalmodel,finalsubmodel, finalseats, transmission, body_style),1,fit_submodel4,meth="jaccard"),
+    
+    fit_list9 = apply(data.frame(finalmake,finalmodel,finalsubmodel, finalseats, transmission, body_style),1,fit_submodel4,meth="jw"),
+    
+    fit_list10 = apply(data.frame(finalmake,finalmodel,finalsubmodel, finalseats, transmission, body_style),1,fit_submodel4,meth="soundex"),
+    
+    score1 = sapply(fit_list1,getscore),
+    fn_tag1 = sapply(fit_list1,gettag),
+    
+    score2 = sapply(fit_list2,getscore),
+    fn_tag2 = sapply(fit_list2,gettag),
+    
+    score3 = sapply(fit_list3,getscore),
+    fn_tag3 = sapply(fit_list3,gettag),
+    
+    score4 = sapply(fit_list4,getscore),
+    fn_tag4 = sapply(fit_list4,gettag),
+    
+    score5 = sapply(fit_list5,getscore),
+    fn_tag5 = sapply(fit_list5,gettag),
+    
+    score6 = sapply(fit_list6,getscore),
+    fn_tag6 = sapply(fit_list6,gettag),
+    
+    score7 = sapply(fit_list7,getscore),
+    fn_tag7 = sapply(fit_list7,gettag),
+    
+    score8 = sapply(fit_list8,getscore),
+    fn_tag8 = sapply(fit_list8,gettag),
+    
+    score9 = sapply(fit_list9,getscore),
+    fn_tag9 = sapply(fit_list9,gettag),
+    
+    score10 = sapply(fit_list10,getscore),
+    fn_tag10 = sapply(fit_list10,gettag)) 
+)
+
+get_sum_score<-function(x,dt=te1){
+  nrow <- dim(dt)[1]
+  print(dim(dt[dt[,x]==1,])[1]/nrow)
+  print(dim(dt[dt[,x]>=0.9,])[1]/nrow)
+  print(dim(dt[dt[,x]>=0.8,])[1]/nrow)
+  print(dim(dt[dt[,x]>=0.7,])[1]/nrow)
+  print(dim(dt[dt[,x]>=0.6,])[1]/nrow)
+  print(dim(dt[dt[,x]>=0.5,])[1]/nrow)
+}
+
+get_sum_score("score1")
+get_sum_score("score2")
+get_sum_score("score3")
+get_sum_score("score4")
+get_sum_score("score5")
+get_sum_score("score6")
+get_sum_score("score7")
+get_sum_score("score8")
+get_sum_score("score9")
+get_sum_score("score10")
+```
 
 
 

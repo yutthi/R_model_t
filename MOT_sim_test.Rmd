@@ -1,0 +1,359 @@
+---
+title: "MOT_sim_test"
+author: "Kaiwen Lai"
+date: "15/09/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(dplyr)
+library(stringdist)
+library(xlsx)
+library(openxlsx)
+```
+```{r}
+#df<-read.csv("../MOT Extract - Oct 2019.csv", header=TRUE, sep=',', stringsAsFactors=FALSE)
+df<-read.xlsx("../MOT Exract Jul-Sep 2019.xlsx",1)
+
+df_empty.ind <- apply(df, 1, function(x){
+  sum(!is.na(x) & x !='' & !is.null(x))
+}) 
+df1 <- df[df_empty.ind!=0,]
+```
+```{r}
+colnames(df1) <- tolower(colnames(df1))
+sub.df <- df1 %>% select(make, make_n, mvrregmake_n, model, model_n, mvrregmodel_n, sub_model, submodel_n,mvrregsubmodel_n, body_style, seats, seats_n, transmission) %>% mutate_all(list(~tolower(.)))
+
+get.Longest <- function(x){
+  final.choice <- x[1]
+  for(i in 1:length(x)){
+    if(nchar(x[i])>nchar(final.choice)){
+      final.choice <- x[i]
+    }
+  }
+  final.choice
+}
+
+getModel <- function(x){
+   x[x=="null"] <- NA
+   x[x==""] <- NA
+   noempty_x <- na.omit(x) # remove NA first
+   noempty_table <- sort(-table(noempty_x)) # table of count in descending order
+   new_table <- names(noempty_table) # attribute names from 'new_table'
+   
+   if(is.null(new_table)) {
+     fn_code = 1
+     res = "NONE" 
+     } else {
+       res = new_table[1]
+       fn_code = 2
+       # 1st should be the  majority
+       if(length(new_table)>1 && noempty_table[1] == noempty_table[2]){
+         res = get.Longest(new_table)
+         fn_code = 3} # get longest one if 1st = 2nd 
+       
+     }
+   return(res) 
+}
+
+sub.df$seats<-ifelse(sub.df$seats!=0,sub.df$seats,sub.df$seats_n)
+
+sub.df[sub.df$seats==3,"seats"] <- 2
+sub.df[sub.df$seats==4,"seats"] <- 5
+sub.df[sub.df$seats==6,"seats"] <- 7
+
+sub.df[sub.df$transmission==1,"transmission"] <- "manual"
+sub.df[sub.df$transmission==2,"transmission"] <- "auto"
+sub.df[sub.df$transmission==3,"transmission"] <- "auto"
+
+new.df <- sub.df %>% mutate(
+  finalmake = apply(data.frame(make, make_n, mvrregmake_n),1,getModel),
+  finalmodel = apply(data.frame(model, model_n, mvrregmodel_n),1,getModel),
+  finalsubmodel = apply(data.frame(sub_model, submodel_n,  mvrregsubmodel_n),1,getModel)) 
+
+get.Seat <- function(x){
+  x[x=="null"] <- NA
+  x[x==0] <- NA
+  noempty_x <- na.omit(x) # remove NA first
+  noempty_table <- sort(-table(noempty_x)) # table of count in descending order
+  new_table <- names(noempty_table) # attribute names from 'new_table'
+  if(is.null(new_table)) {
+     res = 0
+     } else {
+       res = new_table[1]
+       # 1st should be the  majority
+       if(length(new_table)>1 & noempty_table[1] == noempty_table[2]){
+         res = x[1]} # get longest one if 1st = 2nd 
+       
+     }
+   return(res) 
+}
+new.df2 <- new.df  %>% mutate(finalseats = apply(data.frame(seats,seats_n),1,get.Seat))
+new.df2 <- new.df2 %>% select(finalmake,finalmodel,finalsubmodel,finalseats,transmission,body_style)
+head(new.df2)
+```
+
+```{r}
+dt1<-read.csv("../VehicleYear-2020.csv", header=TRUE, sep=',', stringsAsFactors=FALSE)
+dt2<-read.csv("../VehicleYear-2019.csv", header=TRUE, sep=',', stringsAsFactors=FALSE)
+dt3<-read.csv("../VehicleYear-2018.csv", header=TRUE, sep=',', stringsAsFactors=FALSE)
+dt4<-read.csv("../VehicleYear-2017.csv", header=TRUE, sep=',', stringsAsFactors=FALSE)
+dt5<-read.csv("../VehicleYear-2016.csv", header=TRUE, sep=',', stringsAsFactors=FALSE)
+dt6<-read.csv("../VehicleYear-2015.csv", header=TRUE, sep=',', stringsAsFactors=FALSE)
+dt7<-read.csv("../VehicleYear-2014.csv", header=TRUE, sep=',', stringsAsFactors=FALSE)
+dt8<-read.csv("../VehicleYear-2013.csv", header=TRUE, sep=',', stringsAsFactors=FALSE)
+dt9<-read.csv("../VehicleYear-2012.csv", header=TRUE, sep=',', stringsAsFactors=FALSE)
+dt10<-read.csv("../VehicleYear-2011.csv", header=TRUE, sep=',', stringsAsFactors=FALSE)
+```
+```{r}
+big_dt<-rbind(dt1,dt2,dt3,dt4,dt5,dt6,dt7,dt8,dt9,dt10)
+
+colnames(big_dt) <- tolower(colnames(big_dt))
+
+sub.dt2b <- big_dt %>% select(make, model, submodel,body_type,number_of_seats,transmission_type) %>% mutate_all(list(~tolower(.)))
+
+sub.dt2b[sub.dt2b$number_of_seats==3,"number_of_seats"] <- 2
+sub.dt2b[sub.dt2b$number_of_seats==4,"number_of_seats"] <- 5
+sub.dt2b[sub.dt2b$number_of_seats==6,"number_of_seats"] <- 7
+
+sub.dt2c <- sub.dt2b %>% filter(number_of_seats==5 | number_of_seats==0 |number_of_seats==2| number_of_seats==7)
+
+sub.dt2c[sub.dt2c$body_type=="light van" | sub.dt2c$body_type=="heavy van","body_type"] <- "van"
+sub.dt2c[sub.dt2c$body_type=="utility","body_type"] <- "ute"
+sub.dt2c[sub.dt2c$body_type=="saloon","body_type"] <- "sedan"
+sub.dt2c[sub.dt2c$body_type=="self propelled caravan","body_type"] <- "rv/suv"
+sub.dt2c[sub.dt2c$body_type=="sports car","body_type"] <- "coupe"
+
+sub.dt2c[sub.dt2c$transmission_type=="continuously variable","transmission_type"] <- "auto"
+
+sub.dt2d <- unique(sub.dt2c)
+
+dim(sub.dt2c)
+dim(sub.dt2d)
+```
+
+```{R}
+fit_submodel4 <- function(x,y=sub.dt2d,meth='osa'){
+  mak <- as.character(unlist(x[1]))
+  mod <- as.character(unlist(x[2]))
+  s_mod <- as.character(unlist(x[3]))
+  seat <- as.character(unlist(x[4]))
+  trans <- as.character(unlist(x[5]))
+  body <- as.character(unlist(x[6]))
+  
+  y_sub <- y[y[,1]==mak,]
+  a<-stringsim(mod,y_sub[,"model"],method=meth)
+
+  if(s_mod!="NONE"){
+    b<-stringsim(s_mod,y_sub[,"submodel"],method=meth)
+  }else{
+    b<-ifelse(y_sub[,"submodel"]!="",0.5,0)
+  }
+  if(seat!="0"){
+    c <- stringsim(seat,y_sub[,"number_of_seats"],method=meth)
+  }else{
+    c<-ifelse(y_sub[,"number_of_seats"]!="0",0.5,0)
+  }
+  
+  if(trans!="null" | trans!=""){
+    d<-stringsim(trans,y_sub[,"transmission_type"],method=meth)
+  }else{
+    d<-ifelse(y_sub[,"transmission_type"]!="",0.5,0)
+  }
+  
+  e <- stringsim(body,y_sub[,"body_type"],method=meth)
+  
+  tol<- a+b+c+d+e
+  
+  max.fit <- which.max(tol)
+  max.score <- tol[max.fit]
+  mod.score <- a[max.fit]
+  smod.score <- b[max.fit]
+  seats.score <- c[max.fit]
+  trans.score <- d[max.fit]
+  body.score <- e[max.fit]
+  
+  if(length(max.fit)==0){
+    final.tag <- 0
+    score <- 0
+  }else{
+    a_sub <- y_sub[max.fit,"submodel"]
+    a_make<- y_sub[max.fit,"make"]
+    a_model <- y_sub[max.fit,"model"]
+    a_seat <- y_sub[max.fit,"number_of_seats"]
+    a_trans <- y_sub[max.fit,"transmission_type"]
+    a_body <- y_sub[max.fit,"body_type"]
+    final.tag <- which.max(y[,1]==a_make & y[,2]==a_model & y[,3]==a_sub & y[,5]==a_seat & y[,6]== a_trans & y[,4]==a_body)
+    score <- max.score/5
+    }
+  
+  return(list("fn_tag" = final.tag,"score" = score,"mod_score" = mod.score, "smod_score" = smod.score, "seats_score" = seats.score, "trans_score" = trans.score, "body_score" = body.score)) 
+}
+
+gettag <- function(x,num){
+  k <- unlist(x)[num]
+  k
+}
+
+```
+
+```{r}
+df10<-read.csv("../MOT Extract - Oct 2019.csv", header=TRUE, sep=',', stringsAsFactors=FALSE)
+df11<-read.csv("../MOT Extract - Nov 2019.csv", header=TRUE, sep=',', stringsAsFactors=FALSE)
+df12<-read.csv("../MOT Extract - Dec 2019.csv", header=TRUE, sep=',', stringsAsFactors=FALSE)
+df01<-read.csv("../MOT Extract - Jan 2020.csv", header=TRUE, sep=',', stringsAsFactors=FALSE)
+df02<-read.csv("../MOT Extract - Feb 2020.csv", header=TRUE, sep=',', stringsAsFactors=FALSE)
+df03<-read.csv("../MOT Extract - Mar 2020.csv", header=TRUE, sep=',', stringsAsFactors=FALSE)
+df04<-read.csv("../MOT Extract - Apr 2020.csv", header=TRUE, sep=',', stringsAsFactors=FALSE)
+df05<-read.csv("../MOT Extract - May 2020.csv", header=TRUE, sep=',', stringsAsFactors=FALSE)
+
+get_empty <- function(y){
+  df_empty.ind <- apply(y, 1, function(x){
+  sum(!is.na(x) & x !='' & !is.null(x))
+}) 
+  df1 <- y[df_empty.ind!=0,]
+  df1
+}
+
+df10 <- get_empty(df10)
+df11 <- get_empty(df11)
+df12 <- get_empty(df12)
+df01 <- get_empty(df01)
+df02 <- get_empty(df02)
+df03 <- get_empty(df03)
+df04 <- get_empty(df04)
+df05 <- get_empty(df05)
+
+df10a <- df10 %>% select(make, make_n, mvrregmake_n, model, model_n, mvrregmodel_n, sub_model, submodel_n,mvrregsubmodel_n, body_style, seats, seats_n, transmission) %>% mutate_all(list(~tolower(.)))
+df11a <- df11 %>% select(make, make_n, mvrregmake_n, model, model_n, mvrregmodel_n, sub_model, submodel_n,mvrregsubmodel_n, body_style, seats, seats_n, transmission) %>% mutate_all(list(~tolower(.)))
+df12a <- df12 %>% select(make, make_n, mvrregmake_n, model, model_n, mvrregmodel_n, sub_model, submodel_n,mvrregsubmodel_n, body_style, seats, seats_n, transmission) %>% mutate_all(list(~tolower(.)))
+df01a <- df01 %>% select(make, make_n, mvrregmake_n, model, model_n, mvrregmodel_n, sub_model, submodel_n,mvrregsubmodel_n, body_style, seats, seats_n, transmission) %>% mutate_all(list(~tolower(.)))
+df02a <- df02 %>% select(make, make_n, mvrregmake_n, model, model_n, mvrregmodel_n, sub_model, submodel_n,mvrregsubmodel_n, body_style, seats, seats_n, transmission) %>% mutate_all(list(~tolower(.)))
+df03a <- df03 %>% select(make, make_n, mvrregmake_n, model, model_n, mvrregmodel_n, sub_model, submodel_n,mvrregsubmodel_n, body_style, seats, seats_n, transmission) %>% mutate_all(list(~tolower(.)))
+df04a <- df04 %>% select(make, make_n, mvrregmake_n, model, model_n, mvrregmodel_n, sub_model, submodel_n,mvrregsubmodel_n, body_style, seats, seats_n, transmission) %>% mutate_all(list(~tolower(.)))
+df05a <- df05 %>% select(make, make_n, mvrregmake_n, model, model_n, mvrregmodel_n, sub_model, submodel_n,mvrregsubmodel_n, body_style, seats, seats_n, transmission) %>% mutate_all(list(~tolower(.)))
+```
+```{r}
+full_data1 <- rbind(df10a,df11a,df12a,df01a,df02a,df03a,df04a,df05a)
+```
+
+```{r}
+
+get.Longest <- function(x){
+  final.choice <- x[1]
+  for(i in 1:length(x)){
+    if(nchar(x[i])>nchar(final.choice)){
+      final.choice <- x[i]
+    }
+  }
+  final.choice
+}
+
+getModel <- function(x){
+   x[x=="null"] <- NA
+   x[x==""] <- NA
+   noempty_x <- na.omit(x) # remove NA first
+   noempty_table <- sort(-table(noempty_x)) # table of count in descending order
+   new_table <- names(noempty_table) # attribute names from 'new_table'
+   
+   if(is.null(new_table)) {
+     fn_code = 1
+     res = "NONE" 
+     } else {
+       res = new_table[1]
+       fn_code = 2
+       # 1st should be the  majority
+       if(length(new_table)>1 && noempty_table[1] == noempty_table[2]){
+         res = get.Longest(new_table)
+         fn_code = 3} # get longest one if 1st = 2nd 
+       
+     }
+   return(res) 
+}
+
+full_data1$finalseats<-ifelse(full_data1$seats!=0,full_data1$seats,full_data1$seats_n)
+
+full_data1[full_data1$finalseats==3,"finalseats"] <- 2
+full_data1[full_data1$finalseats==4,"finalseats"] <- 5
+full_data1[full_data1$finalseats==6,"finalseats"] <- 7
+full_data1[full_data1$finalseats=="null","finalseats"] <- 0
+
+full_data1[full_data1$transmission==1,"transmission"] <- "manual"
+full_data1[full_data1$transmission==2,"transmission"] <- "auto"
+full_data1[full_data1$transmission==3,"transmission"] <- "auto"
+
+new.df <- full_data1 %>% mutate(
+  finalmake = apply(data.frame(make, make_n, mvrregmake_n),1,getModel),
+  finalmodel = apply(data.frame(model, model_n, mvrregmodel_n),1,getModel),
+  finalsubmodel = apply(data.frame(sub_model, submodel_n,  mvrregsubmodel_n),1,getModel)) 
+
+new.df2 <- new.df %>% select(finalmake,finalmodel,finalsubmodel,finalseats,transmission,body_style)
+head(new.df2)
+```
+
+```{r}
+sort(-table(new.df2$finalseats))
+```
+
+```{r}
+save(new.df2,sub.dt2d,file = "sim_rdata2_10-5")
+```
+```{r}
+load("sim_rdata2_10-5")
+```
+```{r}
+tc<-new.df2
+```
+```{r}
+
+system.time(
+te1<- tc %>% select(finalmake,finalmodel,finalsubmodel, finalseats, transmission, body_style) %>%
+  mutate(
+    fit_list = apply(data.frame(finalmake,finalmodel,finalsubmodel, finalseats, transmission, body_style),1,fit_submodel4,meth="jw"),
+    score = sapply(fit_list,gettag,num = 2),
+    fn_tag = sapply(fit_list,gettag,num = 1),
+    mod_score = sapply(fit_list,gettag,num=3),
+    smod_score = sapply(fit_list,gettag,num=4)) 
+)
+
+get_sum_score<-function(x,dt=te1){
+  nrow <- dim(dt)[1]
+  print(dim(dt[dt[,x]==1,])[1]/nrow)
+  print(dim(dt[dt[,x]>=0.9,])[1]/nrow)
+  print(dim(dt[dt[,x]>=0.8,])[1]/nrow)
+  print(dim(dt[dt[,x]>=0.7,])[1]/nrow)
+  print(dim(dt[dt[,x]>=0.6,])[1]/nrow)
+  print(dim(dt[dt[,x]>=0.5,])[1]/nrow)
+}
+
+get_sum_score("score")
+```
+
+```{R}
+te1a <- te1 %>% filter(fn_tag!=0)
+
+te1a <- te1a %>% mutate(
+  base_make = sub.dt2d$make[fn_tag],
+  base_model = sub.dt2d$model[fn_tag],
+  base_submodel = sub.dt2d$submodel[fn_tag],
+  base_seat = sub.dt2d$number_of_seats[fn_tag],
+  base_transmission = sub.dt2d$transmission_type[fn_tag],
+  base_body_style = sub.dt2d$body_type[fn_tag])
+
+te1b <- te1a %>% select( finalmake,finalmodel,finalsubmodel, finalseats, transmission, body_style,fn_tag,score,base_make,base_model,base_submodel,base_seat,base_transmission,base_body_style)
+```
+
+```{r}
+write.csv(te1b,file="sim_matched_data_set.csv")
+```
+
+```{r}
+te1b$finalsubmodel <- ifelse(te1b$finalsubmodel=="NONE",te1b$base_submodel,te1b$finalsubmodel)
+```
+
+
+
+
+
