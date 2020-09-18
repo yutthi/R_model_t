@@ -933,7 +933,115 @@ get_sum_score("score9")
 get_sum_score("score10")
 ```
 
+```{r}
 
+system.time(
+te2<- tc %>% select(r_id,finalmake,finalmodel,finalsubmodel, finalseats, transmission, body_style) %>%
+  mutate(
+    fit_list = apply(data.frame(finalmake,finalmodel,finalsubmodel, finalseats, transmission, body_style),1,fit_submodel4,meth="cosine"),
+    score = sapply(fit_list,gettag,num = 2),
+    fn_tag = sapply(fit_list,gettag,num = 1),
+    mod_score = sapply(fit_list,gettag,num=3),
+    smod_score = sapply(fit_list,gettag,num=4)) 
+)
+
+get_sum_score<-function(x,dt=te2){
+  nrow <- dim(dt)[1]
+  print(dim(dt[dt[,x]==1,])[1]/nrow)
+  print(dim(dt[dt[,x]>=0.9,])[1]/nrow)
+  print(dim(dt[dt[,x]>=0.8,])[1]/nrow)
+  print(dim(dt[dt[,x]>=0.7,])[1]/nrow)
+  print(dim(dt[dt[,x]>=0.6,])[1]/nrow)
+  print(dim(dt[dt[,x]>=0.5,])[1]/nrow)
+}
+
+get_sum_score("score")
+```
+```{R}
+fit_submodel5 <- function(x,y=sub.dt2d,meth='osa'){
+  mak <- as.character(unlist(x[1]))
+  mod <- as.character(unlist(x[2]))
+  s_mod <- as.character(unlist(x[3]))
+  seat <- as.character(unlist(x[4]))
+  trans <- as.character(unlist(x[5]))
+  body <- as.character(unlist(x[6]))
+  
+  y_sub <- y[y[,1]==mak,]
+  a<-stringsim(mod,y_sub[,"model"],method=meth)
+
+  if(s_mod!="NONE"){
+    b<-stringsim(s_mod,y_sub[,"submodel"],method=meth)
+  }else{
+    b<-0
+  }
+  if(seat!="0"){
+    c <- stringsim(seat,y_sub[,"number_of_seats"],method=meth)
+  }else{
+    c<-0
+  }
+  
+  if(trans!="null" | trans!=""){
+    d<-stringsim(trans,y_sub[,"transmission_type"],method=meth)
+  }else{
+    d<-0
+  }
+  
+  e <- stringsim(body,y_sub[,"body_type"],method=meth)
+  
+  tol<- 0.4*a+0.3*b+0.1*c+0.1*d+0.1*e
+  
+  max.fit <- which.max(tol)
+  max.score <- tol[max.fit]
+  mod.score <- a[max.fit]
+  smod.score <- b[max.fit]
+  seats.score <- c[max.fit]
+  trans.score <- d[max.fit]
+  body.score <- e[max.fit]
+  
+  if(length(max.fit)==0){
+    final.tag <- 0
+    score <- 0
+  }else{
+    a_sub <- y_sub[max.fit,"submodel"]
+    a_make<- y_sub[max.fit,"make"]
+    a_model <- y_sub[max.fit,"model"]
+    a_seat <- y_sub[max.fit,"number_of_seats"]
+    a_trans <- y_sub[max.fit,"transmission_type"]
+    a_body <- y_sub[max.fit,"body_type"]
+    final.tag <- which.max(y[,1]==a_make & y[,2]==a_model & y[,3]==a_sub & y[,5]==a_seat & y[,6]== a_trans & y[,4]==a_body)
+    score <- max.score
+    }
+  
+  return(list("fn_tag" = final.tag,"score" = score,"mod_score" = mod.score, "smod_score" = smod.score, "seats_score" = seats.score, "trans_score" = trans.score, "body_score" = body.score)) 
+}
+```
+
+```{r}
+
+te3<- tc %>% select(r_id,finalmake,finalmodel,finalsubmodel, finalseats, transmission, body_style) %>%
+  mutate(
+    fit_list = apply(data.frame(finalmake,finalmodel,finalsubmodel, finalseats, transmission, body_style),1,fit_submodel4,meth="jw"),
+    score = sapply(fit_list,gettag,num = 2),
+    fn_tag = sapply(fit_list,gettag,num = 1),
+    mod_score = sapply(fit_list,gettag,num=3),
+    smod_score = sapply(fit_list,gettag,num=4)) 
+
+get_sum_score("mod_score",dt=te3)
+
+
+te4<- tc %>% select(r_id,finalmake,finalmodel,finalsubmodel, finalseats, transmission, body_style) %>%
+  mutate(
+    fit_list = apply(data.frame(finalmake,finalmodel,finalsubmodel, finalseats, transmission, body_style),1,fit_submodel5,meth="jw"),
+    score = sapply(fit_list,gettag,num = 2),
+    fn_tag = sapply(fit_list,gettag,num = 1),
+    mod_score = sapply(fit_list,gettag,num=3),
+    smod_score = sapply(fit_list,gettag,num=4)) 
+
+get_sum_score("mod_score",dt=te4)
+
+
+
+```
 
 
 
