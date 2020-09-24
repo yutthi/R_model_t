@@ -35,6 +35,8 @@ row_big_dt <- dim(big_dt)[1]
 
 sub.dt2b <- big_dt %>% select(make, model, submodel,body_type,number_of_seats,transmission_type) %>% mutate_all(list(~tolower(.)))
 
+sub.dt2b$model <- gsub('[-|" "]',"",sub.dt2b$model)
+
 sub.dt2b[sub.dt2b$number_of_seats==3,"number_of_seats"] <- 2
 sub.dt2b[sub.dt2b$number_of_seats==4,"number_of_seats"] <- 5
 sub.dt2b[sub.dt2b$number_of_seats==6,"number_of_seats"] <- 7
@@ -78,7 +80,7 @@ fit_submodel4 <- function(x,y=sub.dt2d,meth='osa'){
     c<-0
   }
   
-  if(trans!="null" | trans!=""){
+  if(trans!="NONE" | trans!=""){
     d<-stringsim(trans,y_sub[,"transmission_type"],method=meth)
   }else{
     d<-0
@@ -138,26 +140,21 @@ get_empty <- function(y){
   df1
 }
 
-df10 <- get_empty(df10)
-df11 <- get_empty(df11)
-df12 <- get_empty(df12)
-df01 <- get_empty(df01)
-df02 <- get_empty(df02)
-df03 <- get_empty(df03)
-df04 <- get_empty(df04)
-df05 <- get_empty(df05)
-
 full_data1 <- rbind(df10,df11,df12,df01,df02,df03,df04,df05)
 
-r_id <- 1:dim(full_data1)[1]
-full_data1 <- cbind(full_data1,r_id)
+full_data1a <- get_empty(full_data1)
+
+r_id <- 1:dim(full_data1a)[1]
+full_data1a <- cbind(full_data1a,r_id)
+
 dim(full_data1)
+dim(full_data1a)
 ```
 
 
 
 ```{r}
-full_data2 <- full_data1 %>% select(r_id, make, make_n, mvrregmake_n, model, model_n, mvrregmodel_n, sub_model, submodel_n,mvrregsubmodel_n, body_style, seats, seats_n, transmission) %>% mutate_all(list(~tolower(.)))
+full_data2 <- full_data1a %>% select(r_id, make, make_n, mvrregmake_n, model, model_n, mvrregmodel_n, sub_model, submodel_n,mvrregsubmodel_n, body_style, seats, seats_n, transmission,transmission_n) %>% mutate_all(list(~tolower(.)))
 
 get.Longest <- function(x){
   final.choice <- x[1]
@@ -186,35 +183,87 @@ getModel <- function(x){
        if(length(new_table)>1 && noempty_table[1] == noempty_table[2]){
          res = get.Longest(new_table)
          fn_code = 3} # get longest one if 1st = 2nd 
-       
      }
    return(res) 
 }
 
-full_data2$finalseats<-ifelse(full_data2$seats!=0,full_data2$seats,full_data2$seats_n)
+get.tm <- function(x){
+  x[x=="null"] <- NA
+  x[x=="NULL"] <- NA
+  x[x==""] <- NA
+  x[x==0] <- NA
+  noempty_x <- na.omit(x) # remove NA first
+  noempty_table <- sort(-table(noempty_x)) # table of count in descending order
+  new_table <- names(noempty_table) # attribute names from 'new_table'
+  if(is.null(new_table)) {
+     fn_code = 1
+     res = "NONE" 
+     } else {
+       res = new_table[1]
+       fn_code = 2
+       # 1st should be the  majority
+       if(length(new_table)>1 && noempty_table[1] == noempty_table[2]){
+         res = "NONE"
+         fn_code = 3} # get longest one if 1st = 2nd 
+     }
+   return(res) 
+}
 
-full_data2[full_data2$finalseats==3,"finalseats"] <- 2
-full_data2[full_data2$finalseats==4,"finalseats"] <- 5
-full_data2[full_data2$finalseats==6,"finalseats"] <- 7
-full_data2[full_data2$finalseats=="null","finalseats"] <- 0
+full_data2$model <- gsub('[-|" "]',"",full_data2$model)
+full_data2$model_n <- gsub('[-|" "]',"",full_data2$model_n)
+full_data2$mvrregmodel_n <- gsub('[-|" "]',"",full_data2$mvrregmodel_n)
+
+
+full_data2[full_data2$seats_n==3,"seats_n"] <- 2
+full_data2[full_data2$seats_n==4,"seats_n"] <- 5
+full_data2[full_data2$seats_n==6,"seats_n"] <- 7
+full_data2[full_data2$seats_n=="null","seats_n"] <- 0
+full_data2[full_data2$seats==3,"seats_n"] <- 2
+full_data2[full_data2$seats==4,"seats_n"] <- 5
+full_data2[full_data2$seats==6,"seats_n"] <- 7
+full_data2[full_data2$seats=="null","seats_n"] <- 0
+
+full_data2$finalseats<-ifelse(full_data2$seats_n==0,full_data2$seats,ifelse(full_data2$seats==0,full_data2$seats_n,
+ifelse(full_data2$seats_n==full_data2$seats,full_data2$seats_n,0)))
+
+
 
 full_data2[full_data2$transmission==1,"transmission"] <- "manual"
-full_data2[full_data2$transmission==2,"transmission"] <- "auto"
-full_data2[full_data2$transmission==3,"transmission"] <- "auto"
+full_data2[full_data2$transmission==2,"transmission"] <- "automatic"
+full_data2[full_data2$transmission==3,"transmission"] <- "automatic"
+
+full_data2$new_trans_n <- ifelse(grepl("manual",full_data2$transmission_n),"manual","null")
+full_data2$new_trans_n <- ifelse(grepl("auto",full_data2$transmission_n),"automatic",full_data2$new_trans_n)
+full_data2$new_trans_n <- ifelse(grepl("[CVT|cvt]",full_data2$transmission_n),"automatic",full_data2$new_trans_n)
+```
+```{r}
 
 new.df <- full_data2 %>% mutate(
   finalmake = apply(data.frame(make, make_n, mvrregmake_n),1,getModel),
   finalmodel = apply(data.frame(model, model_n, mvrregmodel_n),1,getModel),
-  finalsubmodel = apply(data.frame(sub_model, submodel_n,  mvrregsubmodel_n),1,getModel)) 
+  finalsubmodel = apply(data.frame(sub_model, submodel_n,  mvrregsubmodel_n),1,getModel),
+  finaltm = apply(data.frame(transmission, new_trans_n),1,get.tm)) 
+```
+```{r}
+new.df2 <- new.df %>% select(r_id,finalmake,finalmodel,finalsubmodel,finalseats,finaltm,body_style)
 
-new.df2 <- new.df %>% select(r_id,finalmake,finalmodel,finalsubmodel,finalseats,transmission,body_style)
+-sort(-table(new.df2$finaltm))
+
+new.df2$finaltm <- ifelse(grepl("man",new.df2$finalsubmodel) & new.df2$finaltm=="NONE","manual",new.df2$finaltm)
+
+new.df2$finaltm <- ifelse(grepl("[cvt|aut]",new.df2$finalsubmodel) & new.df2$finaltm=="NONE","automatic",new.df2$finaltm)
+
+-sort(-table(new.df2$finaltm))
 head(new.df2)
+```
 
+
+```{r}
 tc<-new.df2
 
-te1<- tc %>% select(r_id,finalmake,finalmodel,finalsubmodel, finalseats, transmission, body_style) %>%
+te1<- tc %>% select(r_id,finalmake,finalmodel,finalsubmodel, finalseats, finaltm, body_style) %>%
   mutate(
-    fit_list = apply(data.frame(finalmake,finalmodel,finalsubmodel, finalseats, transmission, body_style),1,fit_submodel4,meth="jw"),
+    fit_list = apply(data.frame(finalmake,finalmodel,finalsubmodel, finalseats, finaltm, body_style),1,fit_submodel4,meth="jw"),
     score = sapply(fit_list,gettag,num = 2),
     fn_tag = sapply(fit_list,gettag,num = 1),
     mod_score = sapply(fit_list,gettag,num=3),
@@ -246,26 +295,311 @@ te1a <- te1a %>% mutate(
   base_transmission = sub.dt2d$transmission_type[fn_tag],
   base_body_style = sub.dt2d$body_type[fn_tag])
 
-te1b <- te1a %>% select(r_id,finalmake,finalmodel,finalsubmodel, finalseats, transmission, body_style,fn_tag,score,base_make,base_model,base_submodel,base_seat,base_transmission,base_body_style,mod_score,smod_score)
+te1b <- te1a %>% select(r_id,finalmake,finalmodel,finalsubmodel, finalseats, finaltm, body_style,fn_tag,score,base_make,base_model,base_submodel,base_seat,base_transmission,base_body_style,mod_score,smod_score)
 ```
 ```{r}
-save(new.df2,sub.dt2d,file = "sim_rdata_10-5")
+save(big_dt,new.df2,sub.dt2d,full_data1a,file = "sim_rdata_10-5")
 ```
 ```{r}
 save(te1,te1b,file = "sim_mdata_10-5")
 ```
-
 ```{r}
 load("sim_rdata_10-5")
 ```
 
 ```{r}
-write.csv(te1b,file="sim_matched_data_set2.csv")
+write.csv(te1b,file="sim_mdata_10-5.csv")
 ```
 
 ```{r}
 get_sum_score("mod_score",dt=te1)
 ```
+```{R}
+dim(te1b[te1b$finalsubmodel=="NONE"|te1b$finalsubmodel=="none",])
+dim(te1b[(te1b$finalsubmodel=="NONE"|te1b$finalsubmodel=="none") & te1b$mod_score==1,])
+dim(te1b[(te1b$finalsubmodel=="NONE"|te1b$finalsubmodel=="none") & te1b$mod_score>=0.94,])
+dim(te1b[(te1b$finalsubmodel=="NONE"|te1b$finalsubmodel=="none") & te1b$mod_score>=0.94 & 
+           te1b$base_submodel!="",])
+dim(te1b[(te1b$finalsubmodel=="NONE"|te1b$finalsubmodel=="none") & te1b$mod_score>=0.94 & 
+           te1b$base_submodel!="" & te1b$score>=0.66,])
+dim(te1b[(te1b$finalsubmodel=="NONE"|te1b$finalsubmodel=="none") & te1b$mod_score>=0.9 & 
+           te1b$base_submodel!="",])
+```
+
+```{r}
+te1b$newsubmodel <- ifelse((te1b$finalsubmodel=="NONE"|te1b$finalsubmodel=="none") & te1b$mod_score>=0.94 & te1b$score>=0.66,te1b$base_submodel,te1b$finalsubmodel)
+te1b$newsubmodel <- ifelse(te1b$newsubmodel=="NONE"|te1b$newsubmodel=="none","",te1b$newsubmodel)
+
+head(te1b,20)
+```
+```{r}
+dim(te1b[te1b$newsubmodel=="",])
+dim(te1b[te1b$finalseats==0,])
+dim(te1b[te1b$finaltm=="NONE",])
+```
+fix trans by sub-model again
+
+```{r}
+te1ba<- te1b %>% select(r_id,finalmake,finalmodel,newsubmodel, finalseats, finaltm, body_style)
+
+-sort(-table(te1ba$finaltm))
+
+te1ba$finaltm <- ifelse(grepl("man",te1ba$newsubmodel) & te1ba$finaltm=="NONE","manual",te1ba$finaltm)
+
+te1ba$finaltm <- ifelse(grepl("[cvt|aut]",te1ba$newsubmodel) & te1ba$finaltm=="NONE","automatic",te1ba$finaltm)
+
+-sort(-table(te1ba$finaltm))
+head(te1ba)
+```
+
+
+
+```{R}
+fit_submodel5 <- function(x,y=sub.dt2d,meth='osa'){
+  mak <- as.character(unlist(x[1]))
+  mod <- as.character(unlist(x[2]))
+  s_mod <- as.character(unlist(x[3]))
+  seat <- as.character(unlist(x[4]))
+  trans <- as.character(unlist(x[5]))
+  body <- as.character(unlist(x[6]))
+  
+  y_sub <- y[y[,1]==mak,]
+  a<-stringsim(mod,y_sub[,"model"],method=meth)
+
+  if(s_mod!=""){
+    b<-stringsim(s_mod,y_sub[,"submodel"],method=meth)
+  }else{
+    b<-0
+  }
+  if(seat!="0"){
+    c <- stringsim(seat,y_sub[,"number_of_seats"],method=meth)
+  }else{
+    c<- ifelse(y_sub[,"number_of_seats"]!=0,0.5,0)
+  }
+  
+  if(trans!="NONE" | trans!=""){
+    d<-stringsim(trans,y_sub[,"transmission_type"],method=meth)
+  }else{
+    d<- ifelse(y_sub[,"transmission_type"]!="",0.5,0)
+  }
+  
+  e <- stringsim(body,y_sub[,"body_type"],method=meth)
+  
+  tol<- 0.3*a+0.2*b+0.1*c+0.2*d+0.2*e
+  
+  max.fit <- which.max(tol)
+  max.score <- tol[max.fit]
+  mod.score <- a[max.fit]
+  smod.score <- b[max.fit]
+  seats.score <- c[max.fit]
+  trans.score <- d[max.fit]
+  body.score <- e[max.fit]
+  
+  if(length(max.fit)==0){
+    final.tag <- 0
+    score <- 0
+  }else{
+    a_sub <- y_sub[max.fit,"submodel"]
+    a_make<- y_sub[max.fit,"make"]
+    a_model <- y_sub[max.fit,"model"]
+    a_seat <- y_sub[max.fit,"number_of_seats"]
+    a_trans <- y_sub[max.fit,"transmission_type"]
+    a_body <- y_sub[max.fit,"body_type"]
+    final.tag <- which.max(y[,1]==a_make & y[,2]==a_model & y[,3]==a_sub & y[,5]==a_seat & y[,6]== a_trans & y[,4]==a_body)
+    score <- max.score
+    }
+  
+  return(list("fn_tag" = final.tag,"score" = score,"mod_score" = mod.score, "smod_score" = smod.score, "seats_score" = seats.score, "trans_score" = trans.score, "body_score" = body.score)) 
+}
+
+te1c<- te1ba %>% select(r_id,finalmake,finalmodel,newsubmodel, finalseats, finaltm, body_style) %>%
+  mutate(
+    fit_list = apply(data.frame(finalmake,finalmodel,newsubmodel, finalseats, finaltm, body_style),1,fit_submodel5,meth="jw"),
+    score = sapply(fit_list,gettag,num = 2),
+    fn_tag = sapply(fit_list,gettag,num = 1),
+    mod_score = sapply(fit_list,gettag,num=3),
+    smod_score = sapply(fit_list,gettag,num=4),
+    seats_score = sapply(fit_list,gettag,num=5),
+    trans_score = sapply(fit_list,gettag,num=6),
+    body_score = sapply(fit_list,gettag,num=7))
+```
+```{r}
+te1d <- te1c %>% filter(score!=0)
+
+te1d <- te1d %>% mutate(
+  base_make = sub.dt2d$make[fn_tag],
+  base_model = sub.dt2d$model[fn_tag],
+  base_submodel = sub.dt2d$submodel[fn_tag],
+  base_seat = sub.dt2d$number_of_seats[fn_tag],
+  base_transmission = sub.dt2d$transmission_type[fn_tag],
+  base_body_style = sub.dt2d$body_type[fn_tag])
+
+te1e <- te1d %>% select(r_id,finalmake,finalmodel,newsubmodel, finalseats, finaltm, body_style,fn_tag,score,base_make,base_model,base_submodel,base_seat,base_transmission,base_body_style,mod_score,smod_score,seats_score,trans_score,body_score)
+```
+
+```{r}
+dim(te1e[te1e$newsubmodel=="",])
+dim(te1e[te1e$newsubmodel=="" & te1e$base_submodel!="",])
+
+print("seat")
+dim(te1e[te1e$finalseats==0,])
+dim(te1e[te1e$finalseats==0 & te1e$base_seat!=0,])
+dim(te1e[te1e$finalseats==0 & te1e$base_seat!=0 & te1e$score>=0.7 & te1e$mod_score>=0.94,])
+
+print("transmission")
+dim(te1e[te1e$finaltm=="NONE",]) 
+dim(te1e[te1e$finaltm=="NONE" & te1e$base_transmission!="" ,])
+dim(te1e[te1e$finaltm=="NONE" & te1e$base_transmission!="" & te1e$score>=0.7 & te1e$mod_score>=0.94,])
+print("body_style")
+dim(te1e[te1e$body_style!=te1e$base_body_style,])
+```
+```{r}
+save(te1c,file = "sim_m_std_data_10-5")
+```
+```{r}
+write.csv(te1e,file="sim_stb_data_10-5.csv")
+```
+
+```{R}
+tf1 <- te1e
+tf1$newseats <- ifelse((tf1$finalseats==0|tf1$finalseats>=10) & tf1$base_seat!=0 & tf1$score>=0.7 & tf1$mod_score>=0.94, tf1$base_seat,tf1$finalseats)
+tf1$newseats <- ifelse(as.numeric(tf1$newseats)>=10,0,tf1$newseats)
+
+tf1$newtransmission <- ifelse(tf1$finaltm=="NONE" & tf1$base_transmission!="" & tf1$score>=0.7 & tf1$mod_score>=0.94, tf1$base_transmission,tf1$finaltm)
+tf1$newtransmission <- ifelse(grepl("auto",tf1$newtransmission),"automatic",tf1$newtransmission)
+tf1$newtransmission <- ifelse(grepl("manual",tf1$newtransmission),"manual",tf1$newtransmission)
+
+dim(tf1[tf1$newseats==0,])
+dim(tf1[tf1$newtransmission=="NONE",])
+```
+```{r}
+colnames(tf1)
+```
+
+```{r}
+tg1 <- tf1 %>% select(r_id,finalmake,finalmodel,newsubmodel,newseats,newtransmission,body_style) %>%
+  rename(new_body_style=body_style)
+door.subdt <- full_data1a %>% select(r_id, doors,doors_n)
+dt.door<-merge(x=tg1,y=door.subdt,by="r_id",all.x=TRUE)
+
+head(dt.door)
+```
+
+```{r}
+dt.door[dt.door$doors==1,"doors"] <- 0
+dt.door[dt.door$doors==3,"doors"] <- 2
+dt.door[dt.door$doors_n==3,"doors_n"] <- 2
+dt.door[dt.door$doors==5,"doors"] <- 4
+dt.door[dt.door$doors_n==5,"doors_n"] <- 4
+dt.door[dt.door$doors=="NULL","doors"] <- 0
+dt.door[dt.door$doors_n=="NULL","doors_n"] <- 0
+table(dt.door$doors)
+table(dt.door$doors_n)
+
+dt.door$final_doors <- ifelse(dt.door$doors==dt.door$doors_n,dt.door$doors,ifelse(dt.door$doors!=0,dt.door$doors,ifelse(dt.door$doors_n!=0,dt.door$doors_n,0))) 
+
+dt.door$final_doors <- ifelse(dt.door$doors!=dt.door$doors_n & dt.door$doors!=0 & dt.door$doors_n!=0, 0,dt.door$final_doors)
+
+head(dt.door[dt.door$doors!=dt.door$doors_n & dt.door$doors!=0 & dt.door$doors_n!=0,],30)
+```
+
+```{r}
+sub.dt2e <- dt.door  %>% filter(final_doors!=0)
+sub.dt2f <- sub.dt2e %>% select(r_id,finalmake,finalmodel,newsubmodel,newseats,newtransmission,new_body_style, final_doors) %>% group_by(finalmake,finalmodel,newsubmodel,newseats,newtransmission,new_body_style, final_doors) %>% slice(1)
+dim(sub.dt2f)
+```
+```{r}
+save(sub.dt2f,dt.door,dt.door2,dt.door3,file="door_test")
+```
+```{r}
+load("door_test")
+```
+```{r}
+head(sub.dt2f)
+```
+
+
+```{r}
+fit_rest_variable <- function(x,y,meth='osa'){
+  mak <- as.character(unlist(x[1]))
+  mod <- as.character(unlist(x[2]))
+  s_mod <- as.character(unlist(x[3]))
+  seat <- as.character(unlist(x[4]))
+  trans <- as.character(unlist(x[5]))
+  body <- as.character(unlist(x[6]))
+  y <- as.data.frame(y)
+  y_sub <- y[y[,2]==mak,]
+  a<-stringsim(mod,y_sub[,"finalmodel"],method=meth)
+
+  if(s_mod!="NONE"){
+    b<-stringsim(s_mod,y_sub[,"newsubmodel"],method=meth)
+  }else{
+    b<-0
+  }
+  if(seat!="0"){
+    c <- stringsim(seat,y_sub[,"newseats"],method=meth)
+  }else{
+    c<- 0
+  }
+  
+  if(trans!="NONE" | trans!=""){
+    d<-stringsim(trans,y_sub[,"newtransmission"],method=meth)
+  }else{
+    d<-0
+  }
+  
+  e <- stringsim(body,y_sub[,"new_body_style"],method=meth)
+  
+  tol<- 0.3*a+0.2*b+0.1*c+0.2*d+0.2*e
+  
+  max.fit <- which.max(tol)
+  max.score <- tol[max.fit]
+  mod.score <- a[max.fit]
+  smod.score <- b[max.fit]
+  seats.score <- c[max.fit]
+  trans.score <- d[max.fit]
+  body.score <- e[max.fit]
+  
+  if(length(max.fit)==0){
+    final.tag <- 0
+    score <- 0
+  }else{
+    final.tag <- y_sub[max.fit,"r_id"]
+    score <- max.score
+    }
+  #return(final.tag) 
+  return(list("fn_tag" = final.tag,"score" = score)) 
+}
+
+
+dt.door2 <- dt.door %>% mutate(
+  newdoors_tag = ifelse(final_doors!=0, r_id, apply(data.frame(finalmake,finalmodel,newsubmodel, newseats, newtransmission, new_body_style), 1, fit_rest_variable, y=sub.dt2f, meth="jw")),
+    score = ifelse(final_doors!=0, 1, sapply(newdoors_tag,gettag,num = 2)),
+    fn_tag = ifelse(final_doors!=0, r_id, sapply(newdoors_tag,gettag,num = 1))
+)
+
+```
+```{r}
+sub.dt2g <- as.data.frame(sub.dt2f) %>% select(r_id,final_doors)
+dt.door3 <- dt.door2 %>% left_join(sub.dt2g, by = c("fn_tag" = "r_id"))
+
+dt.door3$newdoors <- ifelse(dt.door3$score >= 0.8 & dt.door3$final_doors.x==0, dt.door3$final_doors.y,dt.door3$final_doors.x)
+```
+
+```{r}
+dim(dt.door[dt.door$final_doors==0,])
+dim(dt.door3[dt.door3$newdoors==0,])
+```
+```{r}
+new.data_doors <- dt.door3 %>% select(r_id,finalmake,finalmodel,newsubmodel, newseats, newtransmission, new_body_style,newdoors)
+```
+
+
+
+
+
+
+
 
 
 
