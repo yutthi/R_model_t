@@ -1,0 +1,321 @@
+---
+title: "MOT_sim_test3"
+author: "Kaiwen Lai"
+date: "05/10/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(dplyr)
+library(stringdist)
+library(xlsx)
+library(openxlsx)
+library(reshape2)
+```
+
+```{r}
+load("sim_rdata_10-5")
+```
+
+```{r}
+row_big_dt <- dim(big_dt)[1]
+
+sub.dt2b <- big_dt %>% select(make, model, submodel,body_type,transmission_type) %>% mutate_all(list(~tolower(.)))
+
+sub.dt2b$model <- gsub('[-|" "]',"",sub.dt2b$model)
+
+sub.dt2b[sub.dt2b$body_type=="light van" | sub.dt2b$body_type=="heavy van","body_type"] <- "van"
+sub.dt2b[sub.dt2b$body_type=="utility","body_type"] <- "ute"
+sub.dt2b[sub.dt2b$body_type=="saloon","body_type"] <- "sedan"
+sub.dt2b[sub.dt2b$body_type=="self propelled caravan","body_type"] <- "rv/suv"
+sub.dt2b[sub.dt2b$body_type=="sports car","body_type"] <- "coupe"
+
+sub.dt2b[sub.dt2b$transmission_type=="continuously variable","transmission_type"] <- "automatic"
+
+sub.dt2b$transmission_type <- ifelse(grepl("manual",sub.dt2b$transmission_type),"manual",
+                                      ifelse(grepl("auto",sub.dt2b$transmission_type),"automatic",""))
+
+head(sub.dt2b)
+```
+```{r}
+GetSubmodel1 <- function(x,y=sub.dt2b){
+  make = x[1]
+  model = x[2]
+  y_subset <- y[y[,1]==make & y[,2]==model,]
+  #sub-model frequency table
+  sub_table <- sort(-table(y_subset[,3]))
+  sub_model = ifelse(names(sub_table[1])!="", names(sub_table[1]), names(sub_table[2]))
+  return(sub_model)
+  }
+```
+```{r}
+sub.dt2ba<-sub.dt2b
+sub.dt2c <- sub.dt2ba %>% select(make, model)
+sub.dt_base1 <- unique(sub.dt2c)
+system.time(
+sub.dt2d <- sub.dt_base1 %>%
+  mutate(Sub_model = apply(data.frame(make,model),1,GetSubmodel1))
+)
+```
+```{r}
+head(sub.dt2d,20)
+```
+
+
+```{r}
+save(big_dt,sub.dt2d,file = "sim_new_mdata_10-5")
+```
+
+```{R}
+fit_submodel <- function(x,y=sub.dt2d,meth='osa'){
+  mak <- as.character(unlist(x[1]))
+  mod <- as.character(unlist(x[2]))
+  
+  y_subset <- y[y[,1]==mak,]
+  tol <-stringsim(mod,y_subset[,"model"],method=meth)
+  
+  max.fit <- which.max(tol)
+  max.score <- tol[max.fit]
+  
+  if(length(max.fit)==0){
+    final.tag <- 0
+    score <- 0
+  }else{
+    a_make<- y_subset[max.fit,"make"]
+    a_model <- y_subset[max.fit,"model"]
+    a_sub <- y_subset[max.fit,"Sub_model"]
+    final.tag <- which.max(y[,1]==a_make & y[,2]==a_model & y[,3]==a_sub)
+    score <- max.score
+    }
+  
+  return(list("fn_tag" = final.tag,"score" = score,"new_sub_model" = a_sub,"fit_make" = a_make, "fit_mod" = a_model))
+}
+
+gettag <- function(x,num){
+  k <- unlist(x)[num]
+  k
+}
+
+```
+```{r}
+tc<-new.df2
+
+te1<- tc %>% select(r_id,finalmake,finalmodel,finalsubmodel,finalseats, finaltm, body_style) %>%
+  mutate(
+    fit_list = ifelse(finalsubmodel!="NONE","NOEMPTY",
+      apply(data.frame(finalmake,finalmodel),1,fit_submodel,meth="jw")),
+    score = ifelse(fit_list!="NOEMPTY",sapply(fit_list,gettag,num = 2),1),
+    fit_make = ifelse(fit_list!="NOEMPTY",sapply(fit_list,gettag,num = 4),finalmake),
+    fit_model = ifelse(fit_list!="NOEMPTY",sapply(fit_list,gettag,num = 5),finalmodel),
+    new_submodel = ifelse(fit_list!="NOEMPTY",sapply(fit_list,gettag,num = 3),finalsubmodel))
+```
+
+```{r}
+te1[te1$finalsubmodel=="NONE",][1:50,]
+```
+```{r}
+dim(te1[te1$finalsubmodel=="NONE" |is.na(te1$finalsubmodel),])
+dim(te1[(te1$finalsubmodel=="NONE"|is.na(te1$finalsubmodel)) & te1$score==1,])
+dim(te1[(te1$finalsubmodel=="NONE"|is.na(te1$finalsubmodel)) & te1$score>=0.95,])
+dim(te1[(te1$finalsubmodel=="NONE"|is.na(te1$finalsubmodel)) & te1$score>=0.9,])
+dim(te1[(te1$finalsubmodel=="NONE"|is.na(te1$finalsubmodel)) & te1$score>=0.8,])
+```
+```{r}
+dim(te1[te1$finalsubmodel=="NONE" ,])
+dim(te1[(te1$finalsubmodel=="NONE") & te1$score==1,])
+dim(te1[(te1$finalsubmodel=="NONE") & te1$score>=0.95,])
+dim(te1[(te1$finalsubmodel=="NONE") & te1$score>=0.9,])
+dim(te1[(te1$finalsubmodel=="NONE") & te1$score>=0.8,])
+```
+
+```{r}
+te1[te1$finalsubmodel=="NONE" & te1$score>=0.95 & te1$score<1,][1:50,]
+```
+
+Model2: with highest frequency of 4 variables
+```{r}
+GetSubmodel2 <- function(x,y=sub.dt2b){
+  make = x[1]
+  model = x[2]
+  body = x[3]
+  trans = x[4]
+  y_subset <- y[y[,1]==make & y[,2]==model & y[,4]==body & y[,5]==trans,]
+  #sub-model frequency table
+  sub_table <- sort(-table(y_subset[,3]))
+  sub_model = ifelse(names(sub_table[1])!="", names(sub_table[1]), names(sub_table[2]))
+  return(sub_model)
+}
+
+sub.dt2bb<-sub.dt2b
+sub.dt2cb <- sub.dt2bb %>% select(make, model,transmission_type,body_type)
+sub.dt_base2 <- unique(sub.dt2cb)
+sub.dt2db <- sub.dt_base2 %>%
+  mutate(Sub_model = apply(data.frame(make,model,body_type,transmission_type),1,GetSubmodel2))
+```
+```{r}
+head(sub.dt2db)
+```
+```{R}
+fit_submodel2 <- function(x,y=sub.dt2db,meth='osa'){
+  mak <- as.character(unlist(x[1]))
+  mod <- as.character(unlist(x[2]))
+  body <- as.character(unlist(x[3]))
+  trans <- as.character(unlist(x[4]))
+  
+  y_subset <- y[y[,1]==mak,]
+  a <-stringsim(mod,y_subset[,"model"],method=meth)
+  #if(trans!="NONE" | trans!=""){
+  trans <- ifelse(trans=="NONE","",trans)
+  b<-stringsim(trans,y_subset[,"transmission_type"],method=meth)
+  #}else{
+  #  b<-0
+  #}
+  
+  c <- stringsim(body,y_subset[,"body_type"],method=meth)
+  
+  tol <- 0.6*a+0.2*b+0.2*c
+  
+  max.fit <- which.max(tol)
+  max.score <- tol[max.fit]
+  
+  if(length(max.fit)==0){
+    final.tag <- 0
+    score <- 0
+  }else{
+    a_make<- y_subset[max.fit,"make"]
+    a_model <- y_subset[max.fit,"model"]
+    a_sub <- y_subset[max.fit,"Sub_model"]
+    a_trans <- y_subset[max.fit,"transmission_type"]
+    a_body <- y_subset[max.fit,"body_type"]
+    final.tag <- which.max(y[,1]==a_make & y[,2]==a_model & y[,3]==a_sub & y[,4]==a_body & y[,5]==a_trans)
+    score <- max.score
+    }
+  
+  return(list("fn_tag" = final.tag,"score" = score,"new_sub_model" = a_sub,"fit_make" = a_make, "fit_mod" = a_model, "fit_body" = a_body, "fit_trans" = a_trans))
+}
+
+gettag <- function(x,num){
+  k <- unlist(x)[num]
+  k
+}
+```
+```{R}
+tc<-new.df2
+
+te2<- tc %>% select(r_id,finalmake,finalmodel,finalsubmodel, body_style, finaltm) %>%
+  mutate(
+    fit_list = ifelse(finalsubmodel!="NONE","NOEMPTY",
+      apply(data.frame(finalmake,finalmodel, body_style, finaltm),1,fit_submodel2,meth="jw")),
+    score = ifelse(fit_list!="NOEMPTY",sapply(fit_list,gettag,num = 2),1),
+    fit_make = ifelse(fit_list!="NOEMPTY",sapply(fit_list,gettag,num = 4),finalmake),
+    fit_model = ifelse(fit_list!="NOEMPTY",sapply(fit_list,gettag,num = 5),finalmodel),
+    new_submodel = ifelse(fit_list!="NOEMPTY",sapply(fit_list,gettag,num = 3),finalsubmodel),
+    fit_body = ifelse(fit_list!="NOEMPTY",sapply(fit_list,gettag,num = 6),body_style),
+    fit_trans = ifelse(fit_list!="NOEMPTY",sapply(fit_list,gettag,num = 7),finaltm))
+```
+
+```{R}
+head(te2[te2$finalsubmodel=="NONE",],20)
+```
+```{r}
+dim(te2[te2$finalsubmodel=="NONE" |is.na(te2$finalsubmodel),])
+dim(te2[(te2$finalsubmodel=="NONE"|is.na(te2$finalsubmodel)) & te2$score==1,])
+dim(te2[(te2$finalsubmodel=="NONE"|is.na(te2$finalsubmodel)) & te2$score>=0.95,])
+dim(te2[(te2$finalsubmodel=="NONE"|is.na(te2$finalsubmodel)) & te2$score>=0.9,])
+dim(te2[(te2$finalsubmodel=="NONE"|is.na(te2$finalsubmodel)) & te2$score>=0.8,])
+
+```
+
+```{r}
+head(te1)
+```
+```{r}
+te1$newsubmodel <- ifelse(te1$finalsubmodel=="NONE"  & te1$score==1,te1$new_submodel,te1$finalsubmodel)
+```
+```{r}
+head(te1)
+new.data1 <- te1 %>% select(r_id, finalmake, finalmodel, newsubmodel)
+```
+```{r}
+
+col_name <- c("safety_rating","driversafetystars_n","year")
+sub.dt2 <- full_data1a %>% select(r_id, col_name)
+head(sub.dt2)
+```
+
+```{r}
+dim(sub.dt2[sub.dt2$safety_rating=="NULL" | sub.dt2$safety_rating==0,])[1]/dim(sub.dt2)[1]
+dim(sub.dt2[sub.dt2$driversafetystars_n=="NULL" | sub.dt2$driversafetystars_n==0,])[1]/dim(sub.dt2)[1]
+```
+
+
+```{r}
+dcast(sub.dt2 , safety_rating~driversafetystars_n)
+```
+```{r}
+sub.dt2$safety_star_fixed = ifelse(sub.dt2$driversafetystars_n!=0 & sub.dt2$driversafetystars_n!="NULL", sub.dt2$driversafetystars_n, ifelse(sub.dt2$safety_rating!="NULL" & sub.dt2$safety_rating!=0,sub.dt2$safety_rating,0))
+```
+```{r}
+table(sub.dt2$driversafetystars_n)
+table(sub.dt2$safety_star_fixed)
+```
+
+
+````{r}
+sub.dt3 <- sub.dt2 %>%select(r_id, safety_star_fixed,year)
+merg.dt<-merge(x=new.data1,y=sub.dt3,by="r_id",all.x=TRUE)
+head(merg.dt,20)
+```
+
+
+```{r fig.width=10}
+Check_safetey <- function(x,y){
+  yrs = x
+  y_subset <- y[y[,4]==yrs,]
+  #safe star frequency table
+  sub_table <- sort(-table(y_subset[,3]))
+  new_safe = ifelse(names(sub_table[1])!=0, names(sub_table[1]), names(sub_table[2]))
+  return(new_safe)
+}
+
+test_safe <- function(x,y=merg.dt){
+  a <- y %>% select(finalmake, finalmodel, safety_star_fixed, year) %>%
+  filter(finalmodel==x)
+  b <- a %>% select(finalmake, finalmodel, year)
+  c <- unique(b)
+  ca <- c %>% mutate(new_safe = apply(data.frame(year),1,Check_safetey,y=a))
+  cb <- ca %>% filter(!is.na(new_safe)) %>% mutate(new_safe = as.numeric(new_safe))
+  d <- cb %>% ggplot(aes(x=year,y=new_safe)) + geom_point() + labs(title=x)
+  return(d)
+}
+
+test_safe("corolla")
+test_safe("swift")
+test_safe("axela")
+test_safe("commodore")
+test_safe("hiace")
+test_safe("hilux")
+```
+
+```{r}
+dim(merg.dt[merg.dt$safety_star_fixed==0,])[1]
+dim(merg.dt[merg.dt$safety_star_fixed==0,])[1]/dim(merg.dt)[1]
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
